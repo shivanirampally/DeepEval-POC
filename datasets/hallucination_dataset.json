@@ -1,0 +1,14 @@
+[
+  {
+    "input": "Who invented the telephone?",
+    "context": [
+      "Alexander Graham Bell invented the telephone."
+    ]
+  },
+  {
+    "input": "What is Earth?",
+    "context": [
+      "Earth is spherical."
+    ]
+  }
+]
