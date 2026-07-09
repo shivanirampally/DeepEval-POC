@@ -59,4 +59,7 @@ def test_hallucination(data: any):
     print("Severity Score:", severity_score)
     print("===================================\n")
 
-    assert True
+    (
+    f"Hallucination score {result['score']} exceeded threshold. "
+    f"Reason: {result['reason']}"
+    )

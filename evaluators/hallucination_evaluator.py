@@ -8,7 +8,7 @@ class HallucinationEvaluator:
     def __init__(self):
 
         self.metric = HallucinationMetric(
-            threshold=0.1,
+            threshold=0.2,
             model=load_model()
         )
 

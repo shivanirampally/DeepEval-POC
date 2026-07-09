@@ -20,9 +20,9 @@ test_cases = [
     ),
 
     LLMTestCase(
-        input="Does sun rise in west?",
-        actual_output="Yes, the sun rises in the west.",
-        context=["Sun rises in the east."]
+        input="Does sun rise in east?",
+        actual_output="Yes, the sun rises in the east.",
+        context=["Sun rises in the west."]
     )
 ]
 
