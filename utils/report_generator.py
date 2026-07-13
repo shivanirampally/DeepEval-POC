@@ -2,9 +2,11 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime
 
+
 results_data = []
 
-def generate_excel_report(results):    
+
+def generate_excel_report(results):
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
@@ -15,52 +17,61 @@ def generate_excel_report(results):
 
     with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
 
-        summary_data = []
-
-        for category in set(r["Category"] for r in results):
-
-            category_data = [
-                r for r in results
-                if r["Category"] == category
-            ]
-
-            df = pd.DataFrame(category_data)
-
-            avg_hallucination = round(
-                df["Hallucination %"].mean(),
-                2
-            )
-
-            # Add sheet
-            df.to_excel(
+        if not results:
+            pd.DataFrame([{
+                "Status": "No test results were available"
+            }]).to_excel(
                 writer,
-                sheet_name=category[:31],
+                sheet_name="Summary",
                 index=False
             )
 
-            summary_data.append({
-                "Category": category,
-                "Total Cases": len(df),
-                "Average Hallucination %": avg_hallucination
-            })
+        else:
+            summary_data = []
 
-        summary_df = pd.DataFrame(summary_data)
+            for category in set(r["Category"] for r in results):
 
-        overall_avg = round(
-            summary_df["Average Hallucination %"].mean(),
-            2
-        )
+                category_data = [
+                    r for r in results
+                    if r["Category"] == category
+                ]
 
-        summary_df.loc[len(summary_df)] = {
-            "Category": "OVERALL",
-            "Total Cases": summary_df["Total Cases"].sum(),
-            "Average Hallucination %": overall_avg
-        }
+                df = pd.DataFrame(category_data)
 
-        summary_df.to_excel(
-            writer,
-            sheet_name="Summary",
-            index=False
-        )
+                avg_hallucination = round(
+                    df["Hallucination %"].mean(),
+                    2
+                )
+
+                df.to_excel(
+                    writer,
+                    sheet_name=str(category)[:31],
+                    index=False
+                )
+
+                summary_data.append({
+                    "Category": category,
+                    "Total Cases": len(df),
+                    "Average Hallucination %": avg_hallucination
+                })
+
+            summary_df = pd.DataFrame(summary_data)
+
+            overall_avg = round(
+                summary_df["Average Hallucination %"].mean(),
+                2
+            )
+
+            summary_df.loc[len(summary_df)] = {
+                "Category": "OVERALL",
+                "Total Cases": summary_df["Total Cases"].sum(),
+                "Average Hallucination %": overall_avg
+            }
+
+            summary_df.to_excel(
+                writer,
+                sheet_name="Summary",
+                index=False
+            )
 
     print(f"\nExcel Report Generated: {excel_path}")
