@@ -1,18 +1,44 @@
+# -----------------------------
 # Virtual Environment
+# -----------------------------
+.venv/
 venv/
 
+# -----------------------------
 # Python Cache
+# -----------------------------
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
 
+# -----------------------------
 # Environment Variables
+# -----------------------------
 .env
 
+# -----------------------------
 # VS Code
+# -----------------------------
 .vscode/
 
-# Reports
+# -----------------------------
+# Generated Reports
+# -----------------------------
 reports/
+dataset/outputData/*.xlsx
+dataset/outputData/*.csv
+dataset/outputData/*.html
+!dataset/outputData/.gitkeep
 
-# macOS
+# -----------------------------
+# Python Build Files
+# -----------------------------
+build/
+dist/
+*.egg-info/
+
+# -----------------------------
+# OS Files
+# -----------------------------
 .DS_Store
+Thumbs.db
