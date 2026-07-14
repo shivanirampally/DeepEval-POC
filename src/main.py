@@ -9,23 +9,39 @@ from services.ai_evaluation_service import AIEvaluationService
 
 
 def main():
+    """
+    Entry point for the AI Evaluation POC.
+    """
 
-    print("===== DeepEval POC =====")
+    try:
 
-    dataframe = ExcelReader.read_dataset(
-        INPUT_DATASET
-    )
+        print("\n===== DeepEval POC =====")
 
-    dataframe = AIEvaluationService.run(
-        dataframe
-    )
+        # Read Dataset
+        dataframe = ExcelReader.read_dataset(
+            INPUT_DATASET
+        )
 
-    ReportWriter.save_report(
-        dataframe,
-        OUTPUT_REPORT
-    )
+        # Generate AI Responses + Evaluate
+        dataframe = AIEvaluationService.run(
+            dataframe
+        )
 
-    print("\n===== Process Completed Successfully =====")
+        # Generate Report
+        ReportWriter.save_report(
+            dataframe,
+            OUTPUT_REPORT
+        )
+
+        print("\n===== Process Completed Successfully =====")
+
+    except Exception as error:
+
+        print("\n===================================")
+        print("Application Failed")
+        print("===================================")
+        print(error)
+        print("===================================\n")
 
 
 if __name__ == "__main__":

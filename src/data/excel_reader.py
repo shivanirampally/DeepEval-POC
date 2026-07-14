@@ -30,7 +30,6 @@ class ExcelReader:
             print("===================================")
             print(f"Dataset : {file_path}")
 
-            # Read Excel dataset
             dataframe = pd.read_excel(
                 file_path,
                 engine="openpyxl"
@@ -57,8 +56,11 @@ class ExcelReader:
                     f"Missing required columns: {missing_columns}"
                 )
 
-            # Convert text columns to string
+            # Normalize text columns
             text_columns = [
+                "Input",
+                "Context",
+                "Expected_Output",
                 "AI_Response",
                 "Result",
                 "Remarks"
@@ -70,6 +72,7 @@ class ExcelReader:
                         dataframe[column]
                         .fillna("")
                         .astype(str)
+                        .str.strip()
                     )
 
             print("\nDataset loaded successfully.")

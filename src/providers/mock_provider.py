@@ -1,10 +1,18 @@
 class MockProvider:
     """
-    Mock AI provider used for testing DeepEval
-    without calling Gemini.
+    Mock AI provider used for testing the
+    evaluation pipeline without calling Gemini.
     """
 
-    def generate_response(self, prompt: str) -> str:
+    def generate_response(
+        self,
+        prompt: str
+    ) -> str:
+
+        if not prompt or not str(prompt).strip():
+            raise ValueError(
+                "Prompt cannot be empty."
+            )
 
         responses = {
 
@@ -22,6 +30,9 @@ class MockProvider:
         }
 
         return responses.get(
-            prompt,
-            "This is a mocked AI response generated for DeepEval testing."
+            str(prompt).strip(),
+            (
+                "This is a mocked AI response generated "
+                "for DeepEval testing."
+            )
         )

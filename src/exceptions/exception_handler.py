@@ -3,7 +3,7 @@ import time
 
 class ExceptionHandler:
     """
-    Handles Gemini API exceptions and determines the next action.
+    Handles Gemini API and DeepEval exceptions.
     """
 
     MAX_RETRIES = 3
@@ -13,26 +13,35 @@ class ExceptionHandler:
     def handle(error, attempt):
         """
         Returns:
-        action : retry | stop | fail
-        remarks: Friendly message
+            action  : retry | stop | fail
+            remarks : Friendly message
         """
 
         error_message = str(error)
 
-        # -----------------------------
+        # Uncomment during debugging if needed
+        # print(f"\nRAW ERROR: {error_message}\n")
+
+        # ---------------------------------
         # 429 - Quota Exhausted
-        # -----------------------------
-        if "429" in error_message or "RESOURCE_EXHAUSTED" in error_message:
+        # ---------------------------------
+        if (
+            "429" in error_message
+            or "RESOURCE_EXHAUSTED" in error_message
+        ):
 
             return {
                 "action": "stop",
                 "remarks": "Gemini API quota exhausted."
             }
 
-        # -----------------------------
+        # ---------------------------------
         # 503 - Service Busy
-        # -----------------------------
-        elif "503" in error_message or "UNAVAILABLE" in error_message:
+        # ---------------------------------
+        elif (
+            "503" in error_message
+            or "UNAVAILABLE" in error_message
+        ):
 
             if attempt < ExceptionHandler.MAX_RETRIES:
 
@@ -53,49 +62,74 @@ class ExceptionHandler:
                 "remarks": "Gemini service unavailable after retries."
             }
 
-        # -----------------------------
+        # ---------------------------------
         # 401 - Invalid API Key
-        # -----------------------------
-        elif "401" in error_message or "UNAUTHENTICATED" in error_message:
+        # ---------------------------------
+        elif (
+            "401" in error_message
+            or "UNAUTHENTICATED" in error_message
+        ):
 
             return {
                 "action": "stop",
                 "remarks": "Invalid Gemini API Key."
             }
 
-        # -----------------------------
+        # ---------------------------------
         # 403 - Permission Denied
-        # -----------------------------
-        elif "403" in error_message or "PERMISSION_DENIED" in error_message:
+        # ---------------------------------
+        elif (
+            "403" in error_message
+            or "PERMISSION_DENIED" in error_message
+        ):
 
             return {
                 "action": "stop",
                 "remarks": "Permission denied for Gemini API."
             }
 
-        # -----------------------------
+        # ---------------------------------
         # 404 - Invalid Model
-        # -----------------------------
-        elif "404" in error_message or "NOT_FOUND" in error_message:
+        # ---------------------------------
+        elif (
+            "404" in error_message
+            or "NOT_FOUND" in error_message
+        ):
 
             return {
                 "action": "stop",
                 "remarks": "Configured Gemini model not found."
             }
 
-        # -----------------------------
+        # ---------------------------------
         # 400 - Bad Request
-        # -----------------------------
-        elif "400" in error_message or "INVALID_ARGUMENT" in error_message:
+        # ---------------------------------
+        elif (
+            "400" in error_message
+            or "INVALID_ARGUMENT" in error_message
+        ):
 
             return {
                 "action": "fail",
                 "remarks": "Invalid request sent to Gemini."
             }
 
-        # -----------------------------
+        # ---------------------------------
+        # Network / Connection Issues
+        # ---------------------------------
+        elif (
+            "connection" in error_message.lower()
+            or "network" in error_message.lower()
+        ):
+
+            return {
+                "action": "retry",
+                "remarks": "Network connection issue."
+            }
+
+        # ---------------------------------
         # Timeout
-        # -----------------------------
+        # ---------------------------------
         elif "timeout" in error_message.lower():
 
             if attempt < ExceptionHandler.MAX_RETRIES:
@@ -117,10 +151,10 @@ class ExceptionHandler:
                 "remarks": "Request timed out."
             }
 
-        # -----------------------------
-        # Default
-        # -----------------------------
+        # ---------------------------------
+        # Unknown Error
+        # ---------------------------------
         return {
             "action": "fail",
-            "remarks": error_message
+            "remarks": f"Unexpected Error: {error_message}"
         }

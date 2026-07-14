@@ -48,13 +48,13 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 # Used by google-genai SDK
 GEMINI_MODEL = os.getenv(
     "GEMINI_MODEL",
-    "models/gemini-2.5-flash"
+    "models/gemini-flash-latest"
 )
 
 # Used by DeepEval GeminiModel
-DEEPEVAL_GEMINI_MODEL = GEMINI_MODEL.replace(
-    "models/",
-    ""
+DEEPEVAL_GEMINI_MODEL = os.getenv(
+    "DEEPEVAL_GEMINI_MODEL",
+    GEMINI_MODEL.replace("models/", "")
 )
 
 # ==========================================
@@ -65,4 +65,7 @@ MAX_TEST_CASES = int(
     os.getenv("MAX_TEST_CASES", "5")
 )
 
-USE_MOCK_PROVIDER = True
+USE_MOCK_PROVIDER = (
+    os.getenv("USE_MOCK_PROVIDER", "True")
+    .lower() == "true"
+)
