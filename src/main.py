@@ -1,45 +1,31 @@
 from config.settings import (
-    GEMINI_API_KEY,
-    GEMINI_MODEL,
     INPUT_DATASET,
     OUTPUT_REPORT
 )
 
 from data.excel_reader import ExcelReader
-from providers.gemini_provider import GeminiProvider
+from reports.report_writer import ReportWriter
+from services.ai_evaluation_service import AIEvaluationService
 
 
 def main():
 
-    print("===== Configuration Loaded =====")
-    print(f"Model         : {GEMINI_MODEL}")
-    print(f"Dataset       : {INPUT_DATASET}")
-    print(f"Output Report : {OUTPUT_REPORT}")
+    print("===== DeepEval POC =====")
 
-    if GEMINI_API_KEY:
-        print("API Key       : Loaded")
-    else:
-        print("API Key       : Missing")
-        return
+    dataframe = ExcelReader.read_dataset(
+        INPUT_DATASET
+    )
 
-    print("\n===== AI Test Dataset =====")
+    dataframe = AIEvaluationService.run(
+        dataframe
+    )
 
-    dataframe = ExcelReader.read_dataset(INPUT_DATASET)
+    ReportWriter.save_report(
+        dataframe,
+        OUTPUT_REPORT
+    )
 
-    provider = GeminiProvider()
-
-    print("\n===== Sending First Prompt =====\n")
-
-    prompt = dataframe.iloc[0]["Input"]
-
-    print("Prompt:")
-    print(prompt)
-
-    response = provider.generate_response(prompt)
-
-    print("\nGemini Response:\n")
-
-    print(response)
+    print("\n===== Process Completed Successfully =====")
 
 
 if __name__ == "__main__":

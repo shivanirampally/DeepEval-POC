@@ -26,3 +26,4 @@ OUTPUT_REPORT = BASE_DIR / "dataset" / "outputData" / "evaluation_report.xlsx"
 # Gemini
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+MAX_TEST_CASES = int(os.getenv("MAX_TEST_CASES", "5"))
