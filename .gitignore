@@ -28,3 +28,6 @@ ollama/
 
 # VS Code
 .vscode/
+
+#Environment files
+.env
