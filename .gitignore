@@ -1,33 +1,32 @@
-# Python
-venv/
+# Virtual Environment
 .venv/
+venv/
+
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
 .pytest_cache/
+
+# Environment
+.env
+.env.local
+
+# DeepEval
+.deepeval/
+
+# Reports
+execution_reports/
+reports/
+execution_reports/*
+!execution_reports/.gitkeep
 
 # Allure
 allure-results/
 allure-report/
 
-# Generated Reports
-execution_reports/
-reports/
-
-# DeepEval
-.deepeval/
-scripts/.deepeval/
-
-# Environment files
-.env.local
-.env
-
-# Ollama
-Ollama/
-ollama/
-*.exe
-
 # VS Code
 .vscode/
 
-#Environment files
-.env
+# OS
+.DS_Store
+Thumbs.db

@@ -5,15 +5,8 @@ from config.app_config import (
     TEMPERATURE,
 )
 
-from utils.logger import (
-    info,
-    success,
-)
-
 
 def generate_response(prompt):
-
-    info("Calling Ollama...")
 
     response = ollama.chat(
         model=OLLAMA_MODEL,
@@ -27,7 +20,5 @@ def generate_response(prompt):
             "temperature": TEMPERATURE,
         },
     )
-
-    success("Response Generated")
 
     return response["message"]["content"]

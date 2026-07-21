@@ -1,10 +1,16 @@
 import pandas as pd
 from pathlib import Path
 
+from utils.logger import (
+    info,
+    success,
+)
+
+
 def load_all_datasets(path):
 
-    print("Reading Excel File:")
-    print(Path(path).resolve())
+    info("Loading Dataset...")
+    info(f"Reading Excel: {Path(path).resolve()}")
 
     excel_file = pd.ExcelFile(path)
 
@@ -14,18 +20,20 @@ def load_all_datasets(path):
 
         df = pd.read_excel(
             path,
-            sheet_name=sheet_name
+            sheet_name=sheet_name,
         )
-
-        print("Columns:", df.columns.tolist())
 
         for _, row in df.iterrows():
 
-            dataset.append({
-                "category": row["Hallucination_Type"],
-                "input": row["Input"],
-                "context": [row["Context"]],
-                "expected_output": row["Expected_Output"]
-            })
+            dataset.append(
+                {
+                    "category": row["Hallucination_Type"],
+                    "input": row["Input"],
+                    "context": [row["Context"]],
+                    "expected_output": row["Expected_Output"],
+                }
+            )
+
+    success(f"Dataset Loaded ({len(dataset)} test cases)")
 
     return dataset
