@@ -1,18 +1,37 @@
 # Virtual Environment
+.venv/
 venv/
 
 # Python Cache
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 
 # Environment Variables
 .env
 
-# VS Code
+# IDE
 .vscode/
+.idea/
 
-# Reports
-reports/
-
-# macOS
+# OS
 .DS_Store
+Thumbs.db
+
+# Generated Reports
+reports/
+dataset/outputData/
+
+# Logs
+logs/
+*.log
+
+# Test Artifacts
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Python Packaging
+build/
+dist/
+*.egg-info/
