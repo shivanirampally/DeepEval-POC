@@ -1,4 +1,4 @@
-import ollama
+import models.ollama as ollama
 
 from config.settings import (
     OLLAMA_MODEL,

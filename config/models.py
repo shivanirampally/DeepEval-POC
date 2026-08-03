@@ -1,21 +1,20 @@
 GENERATORS = [
-
     {
-        "provider":"ollama",
-        "model":"qwen3-coder:30b",
-        "display_name":"QA Boat"
+        "provider": "ollama",
+        "display_name": "QA Boat",
+        "model": "qwen3-coder:30b",
+        "enabled": True,
     },
-
     {
-        "provider":"ollama",
-        "model":"phi3",
-        "display_name":"Phi3"
+        "provider": "ollama",
+        "display_name": "Phi3",
+        "model": "phi3",
+        "enabled": True,
     },
-
     {
-        "provider":"gemini",
-        "model":"gemini-2.5-flash",
-        "display_name":"Gemini"
-    }
-
+        "provider": "gemini",
+        "display_name": "Gemini",
+        "model": "gemini-2.5-flash",
+        "enabled": True,
+    },
 ]
