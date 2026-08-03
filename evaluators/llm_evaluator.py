@@ -9,13 +9,13 @@ from deepeval.test_case import (
     LLMTestCaseParams,
 )
 
-from config.app_config import (
+from config.settings import (
     HALLUCINATION_THRESHOLD,
     RELEVANCY_THRESHOLD,
 )
 
-from config.gemini_config import load_gemini_model
-from config.prompts import CORRECTNESS_CRITERIA
+from config.gemini_settings import load_gemini_model
+from config.prompt_templates import CORRECTNESS_CRITERIA
 
 from utils.logger import (
     info,

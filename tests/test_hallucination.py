@@ -1,13 +1,13 @@
 import pytest
 
-from config.app_config import (
+from config.settings import (
     DATASET_PATH,
     MAX_TESTS,
 )
 
 from generators.ollama_generator import generate_response
 
-from evaluators.hallucination_evaluator import HallucinationEvaluator
+from evaluators.llm_evaluator import HallucinationEvaluator
 
 from utils.dataset_loader import load_all_datasets
 

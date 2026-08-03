@@ -1,6 +1,6 @@
 import ollama
 
-from config.app_config import (
+from config.settings import (
     OLLAMA_MODEL,
     TEMPERATURE,
 )

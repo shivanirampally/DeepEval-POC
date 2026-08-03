@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 from deepeval.models import GeminiModel
 
-from config.app_config import GEMINI_MODEL
+from config.settings import GEMINI_MODEL
 
 from utils.logger import (
     info,

@@ -3,7 +3,7 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime
 
-from config.app_config import REPORT_FOLDER
+from config.settings import REPORT_FOLDER
 
 from utils.logger import (
     info,
