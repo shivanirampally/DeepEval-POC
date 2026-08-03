@@ -30,3 +30,6 @@ allure-report/
 # OS
 .DS_Store
 Thumbs.db
+
+# Generated reports
+dataset/outputData/
