@@ -9,10 +9,8 @@ class Requirement:
     """
 
     requirement_id: str
+    requirement_type: str
     title: str
-    acceptance_criteria: str
-
-    description: str = ""
-    business_rules: str = ""
-    module: str = ""
-    priority: str = ""
+    description: str
+    business_rules: str
+    priority: str

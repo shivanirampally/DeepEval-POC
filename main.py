@@ -1,19 +1,34 @@
-from models.requirement import Requirement
+from pathlib import Path
+
+from config.settings import INPUT_WORKBOOK
+from parsers.requirement_parser import RequirementParser
 from prompts.generation_prompt import GenerationPromptBuilder
 
-requirement = Requirement(
-    requirement_id="R001",
-    module="Login",
-    title="User Login",
-    description="User should be able to login with valid credentials.",
-    acceptance_criteria="""
-AC1: User can login with valid username and password.
-AC2: Error should be shown for invalid credentials.
-""",
-    business_rules="Password is mandatory.",
-    priority="High"
-)
 
-prompt = GenerationPromptBuilder.build(requirement)
+def main():
 
-print(prompt)
+    parser = RequirementParser()
+
+    requirements = parser.parse(
+        Path(INPUT_WORKBOOK)
+    )
+
+    print(f"Requirements Loaded : {len(requirements)}")
+
+    print("=" * 80)
+
+    requirement = requirements[0]
+
+    print("Requirement Object")
+
+    print(requirement)
+
+    print("=" * 80)
+
+    prompt = GenerationPromptBuilder.build(requirement)
+
+    print(prompt)
+
+
+if __name__ == "__main__":
+    main()
