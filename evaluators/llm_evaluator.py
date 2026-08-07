@@ -1,108 +1,114 @@
-from deepeval.metrics import (
-    HallucinationMetric,
-    AnswerRelevancyMetric,
-    GEval,
-)
-
-from deepeval.test_case import (
-    LLMTestCase,
-    LLMTestCaseParams,
-)
-
-from config.settings import (
-    HALLUCINATION_THRESHOLD,
-    RELEVANCY_THRESHOLD,
-)
-
-from config.gemini_settings import load_gemini_model
-from config.prompt_templates import CORRECTNESS_CRITERIA
-
-from utils.logger import (
-    info,
-    success,
-    failed,
-)
+from evaluators.framework.schema_validator import SchemaValidator
+from evaluators.framework.testcase_validator import TestCaseValidator
+from evaluators.framework.coverage_validator import CoverageValidator
+from evaluators.deepeval_metrics import DeepEvalMetrics
+from evaluators.scoring.score_calculator import ScoreCalculator
+from evaluators.results.evaluation_result import EvaluationResult
 
 
-class HallucinationEvaluator:
+class LLMEvaluator:
 
     def __init__(self):
 
-        judge = load_gemini_model()
+        self.schema_validator = SchemaValidator()
 
-        self.hallucination = HallucinationMetric(
-            threshold=HALLUCINATION_THRESHOLD,
-            model=judge,
-        )
+        self.testcase_validator = TestCaseValidator()
 
-        self.relevancy = AnswerRelevancyMetric(
-            threshold=RELEVANCY_THRESHOLD,
-            model=judge,
-        )
+        self.coverage_validator = CoverageValidator()
 
-        self.correctness = GEval(
-            name="Correctness",
-            criteria=CORRECTNESS_CRITERIA,
-            evaluation_params=[
-                LLMTestCaseParams.INPUT,
-                LLMTestCaseParams.ACTUAL_OUTPUT,
-                LLMTestCaseParams.EXPECTED_OUTPUT,
-            ],
-            model=judge,
-        )
+        self.deepeval = DeepEvalMetrics()
+
+    # ---------------------------------------------------------
+    # Evaluate
+    # ---------------------------------------------------------
 
     def evaluate(
         self,
-        input_text,
-        actual_output_text,
-        context,
-        expected_output,
+        *,
+        generator,
+        requirement,
+        generated_json,
     ):
 
-        test_case = LLMTestCase(
-            input=input_text,
-            actual_output=actual_output_text,
-            expected_output=expected_output,
-            context=context,
+        # -----------------------------------------
+        # Schema Validation
+        # -----------------------------------------
+
+        schema_result = self.schema_validator.validate(
+            generated_json
         )
 
-        try:
+        if schema_result["status"] == "FAILED":
 
-            info("Running Hallucination Metric...")
-            self.hallucination.measure(test_case)
-            success("Hallucination Completed")
+            return schema_result
 
-            info("Running Correctness Metric...")
-            self.correctness.measure(test_case)
-            success("Correctness Completed")
+        parsed_json = schema_result["data"]
 
-            info("Running Answer Relevancy Metric...")
-            self.relevancy.measure(test_case)
-            success("Answer Relevancy Completed")
+        # -----------------------------------------
+        # Test Case Validation
+        # -----------------------------------------
 
-            return {
-                "status": "SUCCESS",
-                "hallucination_score": self.hallucination.score,
-                "hallucination_reason": self.hallucination.reason,
-                "answer_relevancy_score": self.relevancy.score,
-                "answer_relevancy_reason": self.relevancy.reason,
-                "correctness_score": self.correctness.score,
-                "correctness_reason": self.correctness.reason,
-            }
+        testcase_result = self.testcase_validator.validate(
+            parsed_json
+        )
 
-        except Exception as e:
+        # -----------------------------------------
+        # Coverage Validation
+        # -----------------------------------------
 
-            error = str(e)
+        coverage_result = self.coverage_validator.validate(
+            requirement,
+            parsed_json,
+        )
 
-            failed(error)
+        # -----------------------------------------
+        # DeepEval
+        # -----------------------------------------
 
-            return {
-                "status": "FAILED",
-                "error": error,
-                "hallucination_score": None,
-                "hallucination_reason": error,
-                "answer_relevancy_score": None,
-                "answer_relevancy_reason": error,
-                "correctness_score": None,
-                "correctness_reason": error,
-            }
+        deepeval_result = self.deepeval.evaluate(
+
+            requirement=requirement,
+
+            generated_json=parsed_json,
+
+        )
+
+        # -----------------------------------------
+        # Overall Score
+        # -----------------------------------------
+
+        score = ScoreCalculator.calculate(
+
+            schema_result,
+
+            testcase_result,
+
+            coverage_result,
+
+            deepeval_result,
+
+        )
+
+        # -----------------------------------------
+        # Final Result
+        # -----------------------------------------
+
+        return EvaluationResult.build(
+
+            generator=generator,
+
+            requirement=requirement,
+
+            generated_json=parsed_json,
+
+            schema=schema_result,
+
+            testcase=testcase_result,
+
+            coverage=coverage_result,
+
+            deepeval=deepeval_result,
+
+            score=score,
+
+        )

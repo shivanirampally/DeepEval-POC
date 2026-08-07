@@ -1,11 +1,40 @@
 from pathlib import Path
+import time
 
-from config.settings import INPUT_WORKBOOK
+from config.settings import (
+    INPUT_WORKBOOK,
+    OLLAMA_MODEL,
+    MAX_REQUIREMENTS,
+)
+
 from parsers.requirement_parser import RequirementParser
 from prompts.generation_prompt import GenerationPromptBuilder
+from services.llm_service import LLMService
+from services.json_storage import JsonStorage
+
+from evaluators.llm_evaluator import LLMEvaluator
+
+from reports.report_generator import ReportGenerator
+
+from utils.logger import (
+    header,
+    success,
+    warning,
+    failed,
+    evaluation_summary,
+)
+
+
+GENERATOR = "QA Boat"
 
 
 def main():
+
+    header("QA BOAT → DEEPEVAL POC")
+
+    # ---------------------------------------------------------
+    # Load Requirements
+    # ---------------------------------------------------------
 
     parser = RequirementParser()
 
@@ -13,22 +42,141 @@ def main():
         Path(INPUT_WORKBOOK)
     )
 
-    print(f"Requirements Loaded : {len(requirements)}")
+    if MAX_REQUIREMENTS:
+        requirements = requirements[:MAX_REQUIREMENTS]
 
-    print("=" * 80)
+    success(f"Requirements Loaded : {len(requirements)}")
 
-    requirement = requirements[0]
+    evaluator = LLMEvaluator()
 
-    print("Requirement Object")
+    evaluation_results = []
 
-    print(requirement)
+    # ---------------------------------------------------------
+    # Process Requirements
+    # ---------------------------------------------------------
 
-    print("=" * 80)
+    for requirement in requirements:
 
-    prompt = GenerationPromptBuilder.build(requirement)
+        header(f"Processing : {requirement.requirement_id}")
 
-    print(prompt)
+        start_time = time.perf_counter()
+
+        try:
+
+            # ---------------------------------------------
+            # Prompt Generation
+            # ---------------------------------------------
+
+            success("Building Prompt...")
+
+            prompt = GenerationPromptBuilder.build(
+                requirement
+            )
+
+            # ---------------------------------------------
+            # Generate Test Cases
+            # ---------------------------------------------
+
+            success("Generating Test Cases...")
+
+            response = LLMService.generate_response(
+
+                prompt=prompt,
+
+                model=OLLAMA_MODEL,
+
+            )
+
+            # ---------------------------------------------
+            # Save JSON
+            # ---------------------------------------------
+
+            json_path = JsonStorage.save(
+
+                provider=GENERATOR,
+
+                requirement_id=requirement.requirement_id,
+
+                response=response,
+
+            )
+
+            success(f"JSON Saved : {json_path}")
+
+            # ---------------------------------------------
+            # Load JSON
+            # ---------------------------------------------
+
+            generated_json = JsonStorage.load(
+                json_path
+            )
+
+            # ---------------------------------------------
+            # Evaluation
+            # ---------------------------------------------
+
+            success("Running Evaluation Engine...")
+
+            result = evaluator.evaluate(
+
+                generator=GENERATOR,
+
+                requirement=requirement,
+
+                generated_json=generated_json,
+
+            )
+
+            # ---------------------------------------------
+            # Execution Time
+            # ---------------------------------------------
+
+            result["overall"]["execution_time"] = round(
+
+                time.perf_counter() - start_time,
+
+                2,
+
+            )
+
+            evaluation_results.append(result)
+
+            evaluation_summary(result)
+
+        except Exception as exception:
+
+            failed(str(exception))
+
+            warning(
+                f"Skipping Requirement : "
+                f"{requirement.requirement_id}"
+            )
+
+            continue
+
+    # ---------------------------------------------------------
+    # Generate Report
+    # ---------------------------------------------------------
+
+    if evaluation_results:
+
+        report_path = ReportGenerator.generate(
+            evaluation_results
+        )
+
+        success(
+            f"Evaluation Report : {report_path}"
+        )
+
+    else:
+
+        warning(
+            "No evaluation results available."
+        )
+
+    header("Execution Completed")
 
 
 if __name__ == "__main__":
+
     main()
