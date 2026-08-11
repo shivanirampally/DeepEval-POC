@@ -1,12 +1,40 @@
 from evaluators.framework.schema_validator import SchemaValidator
 from evaluators.framework.testcase_validator import TestCaseValidator
 from evaluators.framework.coverage_validator import CoverageValidator
+
 from evaluators.deepeval_metrics import DeepEvalMetrics
+
 from evaluators.scoring.score_calculator import ScoreCalculator
+
 from evaluators.results.evaluation_result import EvaluationResult
+
+from utils.logger import (
+    info,
+    success,
+    failed,
+)
 
 
 class LLMEvaluator:
+    """
+    Main evaluation orchestrator.
+
+    Evaluation Flow
+    ---------------
+    Generated Output
+        ↓
+    Schema Validation
+        ↓
+    Test Case Quality Validation
+        ↓
+    Coverage Validation
+        ↓
+    AI / DeepEval Evaluation
+        ↓
+    Score Calculation
+        ↓
+    Standardized EvaluationResult
+    """
 
     def __init__(self):
 
@@ -18,97 +46,268 @@ class LLMEvaluator:
 
         self.deepeval = DeepEvalMetrics()
 
-    # ---------------------------------------------------------
+    # ==========================================================
     # Evaluate
-    # ---------------------------------------------------------
+    # ==========================================================
 
     def evaluate(
         self,
         *,
         generator,
         requirement,
-        generated_json,
+        generated_output,
     ):
 
-        # -----------------------------------------
-        # Schema Validation
-        # -----------------------------------------
+        try:
 
-        schema_result = self.schema_validator.validate(
-            generated_json
-        )
+            # ==================================================
+            # 1. Schema Validation
+            # ==================================================
 
-        if schema_result["status"] == "FAILED":
+            info("Running Schema Validation...")
 
-            return schema_result
+            schema_result = (
+                self.schema_validator.validate(
+                    generated_output
+                )
+            )
 
-        parsed_json = schema_result["data"]
+            if schema_result["status"] == "FAILED":
 
-        # -----------------------------------------
-        # Test Case Validation
-        # -----------------------------------------
+                failed(
+                    "Schema Validation Failed"
+                )
 
-        testcase_result = self.testcase_validator.validate(
-            parsed_json
-        )
+                return EvaluationResult.build(
 
-        # -----------------------------------------
-        # Coverage Validation
-        # -----------------------------------------
+                    generator=generator,
 
-        coverage_result = self.coverage_validator.validate(
-            requirement,
-            parsed_json,
-        )
+                    requirement=requirement,
 
-        # -----------------------------------------
-        # DeepEval
-        # -----------------------------------------
+                    generated_output=generated_output,
 
-        deepeval_result = self.deepeval.evaluate(
+                    schema=schema_result,
 
-            requirement=requirement,
+                    testcase={
+                        "validator": "TestCaseValidator",
+                        "status": "NOT_EXECUTED",
+                        "score": 0,
+                        "errors": [
+                            "Skipped because schema validation failed."
+                        ],
+                        "warnings": [],
+                        "statistics": {},
+                    },
 
-            generated_json=parsed_json,
+                    coverage={
+                        "validator": "CoverageValidator",
+                        "status": "NOT_EXECUTED",
+                        "score": 0,
+                        "errors": [
+                            "Skipped because schema validation failed."
+                        ],
+                        "warnings": [],
+                        "statistics": {},
+                    },
 
-        )
+                    deepeval={
+                        "validator": "DeepEval",
+                        "status": "NOT_EXECUTED",
+                        "score": 0,
+                        "error": (
+                            "Skipped because schema validation failed."
+                        ),
+                    },
 
-        # -----------------------------------------
-        # Overall Score
-        # -----------------------------------------
+                    score={
+                        "quality_validation_score": 0,
+                        "ai_evaluation_score": 0,
+                        "overall_score": 0,
+                        "status": "FAIL",
+                        "execution_time": 0,
+                        "winner": "",
+                    },
 
-        score = ScoreCalculator.calculate(
+                )
 
-            schema_result,
+            success("Schema Validation Completed")
 
-            testcase_result,
+            parsed_output = schema_result["data"]
 
-            coverage_result,
+            # ==================================================
+            # 2. Test Case Quality Validation
+            # ==================================================
 
-            deepeval_result,
+            info(
+                "Running Test Case Quality Validation..."
+            )
 
-        )
+            testcase_result = (
+                self.testcase_validator.validate(
+                    parsed_output
+                )
+            )
 
-        # -----------------------------------------
-        # Final Result
-        # -----------------------------------------
+            success(
+                "Test Case Quality Validation Completed"
+            )
 
-        return EvaluationResult.build(
+            # ==================================================
+            # 3. Coverage Validation
+            # ==================================================
 
-            generator=generator,
+            info(
+                "Running Coverage Validation..."
+            )
 
-            requirement=requirement,
+            coverage_result = (
+                self.coverage_validator.validate(
+                    requirement,
+                    parsed_output,
+                )
+            )
 
-            generated_json=parsed_json,
+            success(
+                "Coverage Validation Completed"
+            )
 
-            schema=schema_result,
+            # ==================================================
+            # 4. AI / DeepEval Evaluation
+            # ==================================================
 
-            testcase=testcase_result,
+            info(
+                "Running AI Evaluation..."
+            )
 
-            coverage=coverage_result,
+            deepeval_result = (
+                self.deepeval.evaluate(
 
-            deepeval=deepeval_result,
+                    requirement=requirement,
 
-            score=score,
+                    generated_output=parsed_output,
 
-        )
+                )
+            )
+
+            success(
+                "AI Evaluation Completed"
+            )
+
+            # ==================================================
+            # 5. Score Calculation
+            # ==================================================
+
+            info(
+                "Calculating Overall Score..."
+            )
+
+            score = ScoreCalculator.calculate(
+
+                schema_result,
+
+                testcase_result,
+
+                coverage_result,
+
+                deepeval_result,
+
+            )
+
+            success(
+                "Overall Score Calculated"
+            )
+
+            # ==================================================
+            # 6. Standardized Evaluation Result
+            # ==================================================
+
+            result = EvaluationResult.build(
+
+                generator=generator,
+
+                requirement=requirement,
+
+                generated_output=parsed_output,
+
+                schema=schema_result,
+
+                testcase=testcase_result,
+
+                coverage=coverage_result,
+
+                deepeval=deepeval_result,
+
+                score=score,
+
+            )
+
+            success(
+                "Evaluation Result Built"
+            )
+
+            return result
+
+        except Exception as exception:
+
+            failed(
+                f"Evaluation Engine Failed : {exception}"
+            )
+
+            # --------------------------------------------------
+            # Always return the standardized result structure.
+            # --------------------------------------------------
+
+            return EvaluationResult.build(
+
+                generator=generator,
+
+                requirement=requirement,
+
+                generated_output=generated_output,
+
+                schema={
+                    "validator": "SchemaValidator",
+                    "status": "FAILED",
+                    "score": 0,
+                    "errors": [
+                        str(exception)
+                    ],
+                    "warnings": [],
+                    "statistics": {},
+                },
+
+                testcase={
+                    "validator": "TestCaseValidator",
+                    "status": "FAILED",
+                    "score": 0,
+                    "errors": [],
+                    "warnings": [],
+                    "statistics": {},
+                },
+
+                coverage={
+                    "validator": "CoverageValidator",
+                    "status": "FAILED",
+                    "score": 0,
+                    "errors": [],
+                    "warnings": [],
+                    "statistics": {},
+                },
+
+                deepeval={
+                    "validator": "DeepEval",
+                    "status": "FAILED",
+                    "score": 0,
+                    "error": str(exception),
+                },
+
+                score={
+                    "quality_validation_score": 0,
+                    "ai_evaluation_score": 0,
+                    "overall_score": 0,
+                    "status": "FAIL",
+                    "execution_time": 0,
+                    "winner": "",
+                },
+
+            )

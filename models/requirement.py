@@ -1,11 +1,12 @@
-from dataclasses import dataclass
-from models.ground_truth import GroundTruth
+from dataclasses import dataclass, field
+
+from models.benchmark_testcase import BenchmarkTestCase
+
 
 @dataclass(slots=True)
 class Requirement:
     """
-    Represents a business requirement used for
-    LLM-based test case generation and evaluation.
+    Represents a business requirement.
     """
 
     requirement_id: str
@@ -15,4 +16,6 @@ class Requirement:
     business_rules: str
     priority: str
 
-    ground_truth: list[GroundTruth] | None = None
+    benchmark_repository: list[BenchmarkTestCase] = field(
+        default_factory=list
+    )

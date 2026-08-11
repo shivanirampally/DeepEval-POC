@@ -1,18 +1,20 @@
 import re
 
-
 class CoverageValidator:
     """
-    Validates whether generated test cases cover
-    the business requirement.
+    Evaluates requirement coverage using the Requirement as the
+    primary source of truth and the Benchmark Repository as a
+    reference repository.
+
+    This validator does NOT directly compare against benchmark
+    test cases. The benchmark is used only to identify potential
+    missing or additional scenarios.
     """
 
     POSITIVE_KEYWORDS = [
         "valid",
-        "successful",
         "success",
-        "correct",
-        "allowed",
+        "successful",
         "login",
         "submit",
         "save",
@@ -23,10 +25,9 @@ class CoverageValidator:
         "incorrect",
         "error",
         "failed",
-        "fail",
-        "empty",
         "mandatory",
         "required",
+        "empty",
     ]
 
     BOUNDARY_KEYWORDS = [
@@ -40,90 +41,50 @@ class CoverageValidator:
     ]
 
     EDGE_KEYWORDS = [
-        "special character",
-        "null",
         "blank",
-        "whitespace",
+        "null",
         "duplicate",
-        "unexpected",
-    ]
-
-    VALIDATION_KEYWORDS = [
-        "validation",
-        "validate",
-        "mandatory",
-        "required",
-        "format",
+        "whitespace",
+        "special",
     ]
 
     @classmethod
-    def validate(cls, requirement, generated_json):
+    def validate(cls,requirement,generated_output,
+    ):
 
-        errors = []
-        warnings = []
-        score = 100
-
-        statistics = {
-            "requirement_lines": 0,
-            "covered_requirement_lines": 0,
-            "positive_scenarios": 0,
-            "negative_scenarios": 0,
-            "boundary_scenarios": 0,
-            "edge_scenarios": 0,
-            "validation_scenarios": 0,
-            "business_rule_coverage": False,
-        }
-
-        testcases = generated_json.get(
-            "testCases",
-            [],
-        )
-
+        generated_cases = generated_output.get("testCases",[],)
         generated_text = ""
-        for testcase in testcases:
-            generated_text += " "
-            generated_text += testcase.get(
-                "testDescription",
-                "",
-            )
 
+        for testcase in generated_cases:
             generated_text += " "
-            generated_text += testcase.get(
-                "expectedResult",
-                "",
-            )
-
+            generated_text += testcase.get("testDescription","")
+            generated_text += " "
+            generated_text += testcase.get("expectedResult", "")
             generated_text += " "
             generated_text += " ".join(
-                testcase.get(
-                    "testSteps",
-                    [],
-                )
+                testcase.get("testSteps",[])
             )
 
         generated_text = generated_text.lower()
+        covered = []
+        missing = []
+        additional = []
+        warnings = []
+        errors = []
+        score = 100
 
         # Requirement Coverage
-
         requirement_lines = [
             line.strip()
+
             for line in requirement.description.splitlines()
             if line.strip()
         ]
 
-        statistics["requirement_lines"] = len(
-            requirement_lines
-        )
-
-        covered = 0
         for line in requirement_lines:
-            words = re.findall(
-                r"\w+",
-                line.lower(),
-            )
 
-            if not words:
-                continue
+            words = re.findall(r"\w+",line.lower(),)
+            if not words:continue
 
             matches = sum(
                 1
@@ -131,89 +92,143 @@ class CoverageValidator:
                 if word in generated_text
             )
 
-            if matches / len(words) >= 0.50:
-                covered += 1
+            if matches / len(words) >= 0.50:covered.append(line)
+            else:
+                missing.append(line)
 
-        statistics["covered_requirement_lines"] = covered
+        if missing:
+            score -= len(missing) * 5
+            warnings.append(f"{len(missing)} requirement scenario(s) not covered.")
 
-        if requirement_lines:
-            coverage = (
-                covered
-                / len(requirement_lines)
-            ) * 100
+        # Benchmark Repository Analysis
+        benchmark_descriptions = {
+            testcase.description.lower()
+            for testcase in requirement.benchmark_repository
+        }
 
-            if coverage < 100:
-                warnings.append(
-                    f"Requirement Coverage : {coverage:.0f}%"
-                )
-                score -= 10
+        generated_descriptions = {
+            testcase.get("testDescription","").lower()
+            for testcase in generated_cases
+        }
 
-        # Scenario Coverage
+        for scenario in generated_descriptions:
+            if scenario not in benchmark_descriptions:
+                additional.append(scenario)
 
-        def count_keywords(keywords):
-            return sum(
-                generated_text.count(word)
-                for word in keywords
-            )
+        # Business Rule Coverage
 
-        statistics["positive_scenarios"] = count_keywords(cls.POSITIVE_KEYWORDS)
-        statistics["negative_scenarios"] = count_keywords(cls.NEGATIVE_KEYWORDS)
-        statistics["boundary_scenarios"] = count_keywords(cls.BOUNDARY_KEYWORDS)
-        statistics["edge_scenarios"] = count_keywords(cls.EDGE_KEYWORDS)
-        statistics["validation_scenarios"] = count_keywords(cls.VALIDATION_KEYWORDS)
-
-        if statistics["positive_scenarios"] == 0:
-            warnings.append("Positive scenarios not detected.")
-            score -= 5
-
-        if statistics["negative_scenarios"] == 0:
-            warnings.append("Negative scenarios not detected.")
-            score -= 5
-
-        if statistics["boundary_scenarios"] == 0:
-            warnings.append("Boundary scenarios not detected.")
-            score -= 5
-
-        if statistics["edge_scenarios"] == 0:
-            warnings.append("Edge scenarios not detected.")
-            score -= 5
-
-        if statistics["validation_scenarios"] == 0:
-            warnings.append("Validation scenarios not detected.")
-            score -= 5
-
-        # Business Rules
         business_rules = (
             requirement.business_rules or ""
         ).strip()
 
+        business_rule_covered = True
+
         if business_rules:
 
-            if business_rules.lower() in generated_text:
+            keywords = re.findall(
+                r"\w+",
+                business_rules.lower(),
+            )
 
-                statistics[
-                    "business_rule_coverage"
-                ] = True
+            matched = sum(
 
-            else:
+                1
 
-                warnings.append(
-                    "Business Rules not covered."
-                )
+                for keyword in keywords
 
-                score -= 10
+                if keyword in generated_text
+
+            )
+
+            if keywords:
+
+                coverage = matched / len(keywords)
+
+                if coverage < 0.50:
+
+                    business_rule_covered = False
+
+                    score -= 10
+
+                    warnings.append(
+                        "Business rules are partially covered."
+                    )
+
+        # Scenario Detection
+
+        statistics = {
+
+            "positive": cls._count_keywords(
+                generated_text,
+                cls.POSITIVE_KEYWORDS,
+            ),
+
+            "negative": cls._count_keywords(
+                generated_text,
+                cls.NEGATIVE_KEYWORDS,
+            ),
+
+            "boundary": cls._count_keywords(
+                generated_text,
+                cls.BOUNDARY_KEYWORDS,
+            ),
+
+            "edge": cls._count_keywords(
+                generated_text,
+                cls.EDGE_KEYWORDS,
+            ),
+
+        }
+
+        # Requirement Satisfaction
+
+        requirement_satisfied = (
+            len(missing) == 0
+            and business_rule_covered
+        )
+
+        if not requirement_satisfied:
+
+            score -= 10
+
+        score = max(score, 0)
 
         return {
 
-            "validator": "CoverageValidator",
+            "validator": "Coverage Validator",
 
             "status": "SUCCESS",
 
-            "score": max(score, 0),
+            "score": score,
+
+            "covered": covered,
+
+            "missing": missing,
+
+            "additional": additional,
+
+            "requirement_satisfied": requirement_satisfied,
+
+            "business_rule_covered": business_rule_covered,
+
+            "statistics": statistics,
 
             "errors": errors,
 
             "warnings": warnings,
 
-            "statistics": statistics,
         }
+
+    @staticmethod
+    def _count_keywords(
+        text,
+        keywords,
+    ):
+
+        return sum(
+
+            text.count(keyword)
+
+            for keyword in keywords
+
+        )

@@ -1,11 +1,17 @@
 class EvaluationResult:
+    """
+    Builds the standardized evaluation result returned by the
+    evaluation engine.
+
+    This structure is considered the project contract.
+    """
 
     @staticmethod
     def build(
         *,
         generator,
         requirement,
-        generated_json,
+        generated_output,
         schema,
         testcase,
         coverage,
@@ -14,30 +20,36 @@ class EvaluationResult:
     ):
 
         return {
-    #Generator        
-    "generator": generator,
+            # Generator Information
+            "generator": generator,
 
-    #Requirments Information
-    "requirementId": requirement.requirement_id,
-    "title": requirement.title,
-    "description": requirement.description,
-    "businessRules": requirement.business_rules,
-    "priority": requirement.priority,
+            # Requirement Information
+            "requirement": {
+                "id": requirement.requirement_id,
+                "type": requirement.requirement_type,
+                "title": requirement.title,
+                "description": requirement.description,
+                "business_rules": requirement.business_rules,
+                "priority": requirement.priority,
+            },
 
-    #Generated Output
-    "generatedJson": generated_json,
+            # Generated Output
+            "generated_output": generated_output,
 
-    #Ground Truth 
-    "groundTruth": requirement.ground_truth,
+            # Benchmark Repository
+            "benchmark_repository": requirement.benchmark_repository,
 
-    #Testcase format validation
-    "schemaValidation": schema,
-    "testCaseValidation": testcase,
-    "coverageValidation": coverage,
+            # Framework Validation
+            "testcase_quality_validation": {
+                "schema": schema,
+                "testcase": testcase,
+                "coverage": coverage,
+            },
 
-    #DeepEval Metrics
-    "deepEval": deepeval,
+            # DeepEval Evaluation
+            "ai_evaluation": deepeval,
 
-    #Overall Score
-    "overall": score,
-}
+            # Final Score
+            "overall": score,
+
+        }

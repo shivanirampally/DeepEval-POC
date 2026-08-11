@@ -22,7 +22,7 @@ class TestCaseValidator:
     """
 
     @classmethod
-    def validate(cls, generated_json: dict) -> dict:
+    def validate(cls, generated_output: dict) -> dict:
 
         errors = []
         warnings = []
@@ -40,7 +40,7 @@ class TestCaseValidator:
             "invalid_step_count": 0,
         }
 
-        testcases = generated_json.get("testCases", [])
+        testcases = generated_output.get("testCases", [])
 
         statistics["total_testcases"] = len(testcases)
 

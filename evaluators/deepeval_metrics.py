@@ -1,9 +1,6 @@
 import json
-
 from deepeval.test_case import LLMTestCase
-
 from config.judge_settings import OllamaJudge
-
 from evaluators.metrics.hallucination_metric import (
     HallucinationEvaluator,
 )
@@ -16,8 +13,8 @@ from evaluators.metrics.answer_relevancy_metric import (
     AnswerRelevancyEvaluator,
 )
 
-from parsers.groundtruth_parser import (
-    GroundTruthParser,
+from parsers.benchmark_repository_parser import (
+    BenchmarkRepositoryParser,
 )
 
 from utils.logger import (
@@ -33,7 +30,7 @@ class DeepEvalMetrics:
 
     Responsibilities
     ----------------
-    • Build DeepEval Test Case
+    • Build DeepEval test case
     • Execute semantic metrics
     • Aggregate scores
     """
@@ -56,40 +53,40 @@ class DeepEvalMetrics:
             )
         )
 
-    # ---------------------------------------------------------
+    # ==========================================================
     # Evaluate
-    # ---------------------------------------------------------
+    # ==========================================================
 
     def evaluate(
         self,
         *,
         requirement,
-        generated_json,
+        generated_output,
     ):
 
-        # -----------------------------------------------------
+        # ------------------------------------------------------
         # Generated Output
-        # -----------------------------------------------------
+        # ------------------------------------------------------
 
         actual_output = json.dumps(
-            generated_json,
+            generated_output,
             indent=2,
             ensure_ascii=False,
         )
 
-        # -----------------------------------------------------
-        # Ground Truth
-        # -----------------------------------------------------
+        # ------------------------------------------------------
+        # Benchmark Repository
+        # ------------------------------------------------------
 
-        expected_output = (
-            GroundTruthParser.to_expected_output(
-                requirement.ground_truth or []
+        benchmark_output = (
+            BenchmarkRepositoryParser.to_benchmark_text(
+                requirement.benchmark_repository
             )
         )
 
-        # -----------------------------------------------------
+        # ------------------------------------------------------
         # DeepEval Test Case
-        # -----------------------------------------------------
+        # ------------------------------------------------------
 
         test_case = LLMTestCase(
 
@@ -97,25 +94,24 @@ class DeepEvalMetrics:
 
             actual_output=actual_output,
 
-            expected_output=expected_output,
+            expected_output=benchmark_output,
 
             context=[
-
                 requirement.description,
-
                 requirement.business_rules,
-
             ],
 
         )
 
         try:
 
-            # -------------------------------------------------
+            # --------------------------------------------------
             # Hallucination
-            # -------------------------------------------------
+            # --------------------------------------------------
 
-            info("Running Hallucination Metric...")
+            info(
+                "Running Hallucination Metric..."
+            )
 
             hallucination = (
                 self.hallucination.evaluate(
@@ -123,13 +119,17 @@ class DeepEvalMetrics:
                 )
             )
 
-            success("Hallucination Completed")
+            success(
+                "Hallucination Completed"
+            )
 
-            # -------------------------------------------------
+            # --------------------------------------------------
             # Correctness
-            # -------------------------------------------------
+            # --------------------------------------------------
 
-            info("Running Correctness Metric...")
+            info(
+                "Running Correctness Metric..."
+            )
 
             correctness = (
                 self.correctness.evaluate(
@@ -137,13 +137,17 @@ class DeepEvalMetrics:
                 )
             )
 
-            success("Correctness Completed")
+            success(
+                "Correctness Completed"
+            )
 
-            # -------------------------------------------------
+            # --------------------------------------------------
             # Answer Relevancy
-            # -------------------------------------------------
+            # --------------------------------------------------
 
-            info("Running Answer Relevancy Metric...")
+            info(
+                "Running Answer Relevancy Metric..."
+            )
 
             answer_relevancy = (
                 self.answer_relevancy.evaluate(
@@ -151,22 +155,20 @@ class DeepEvalMetrics:
                 )
             )
 
-            success("Answer Relevancy Completed")
+            success(
+                "Answer Relevancy Completed"
+            )
 
-            # -------------------------------------------------
-            # Overall DeepEval Score
-            # -------------------------------------------------
+            # --------------------------------------------------
+            # Overall AI Evaluation Score
+            # --------------------------------------------------
 
             overall_score = round(
 
                 (
-
                     hallucination["score"]
-
                     + correctness["score"]
-
                     + answer_relevancy["score"]
-
                 ) / 3,
 
                 2,
