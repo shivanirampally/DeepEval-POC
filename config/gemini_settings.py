@@ -1,34 +1,19 @@
 import os
-
 from dotenv import load_dotenv
 from deepeval.models import GeminiModel
-
 from config.settings import GEMINI_MODEL
-
-from utils.logger import (
-    info,
-    success,
-)
-
+from utils.logger import (info,success,)
 load_dotenv()
 
 
 def load_gemini_model():
 
-    info("Initializing Gemini Judge...")
-
+    info("Initializing Gemini Evaluator...")
     api_key = os.getenv("GOOGLE_API_KEY")
 
     if not api_key:
-        raise ValueError(
-            "GOOGLE_API_KEY not found in .env"
-        )
+        raise ValueError("GOOGLE_API_KEY not found in .env")
 
-    model = GeminiModel(
-        model=GEMINI_MODEL,
-        api_key=api_key,
-    )
-
-    success(f"Gemini Judge Ready ({GEMINI_MODEL})")
-
+    model = GeminiModel(model=GEMINI_MODEL,api_key=api_key,)
+    success(f"Gemini Evaluator Ready ({GEMINI_MODEL})")
     return model

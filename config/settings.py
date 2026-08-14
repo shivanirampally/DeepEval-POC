@@ -1,83 +1,141 @@
 """
 Application Configuration
 """
-
+##--------RequirmentSheet validations--------
 # Workbook
-INPUT_WORKBOOK = "datasets/Login_test_repository.xlsx"
+INPUT_WORKBOOK = ("datasets/LoginFunctionality_RequirmentsRepository.xlsx")
 OUTPUT_FOLDER = "dataset/outputData"
 
 # Excel Sheet Names
 REQUIREMENT_SHEET = "01_Requirements"
-BENCHMARK_REPOSITORY_SHEET = "02_Benchmark_TestCases"
-BENCHMARK_SHEET = "03_Benchmark_Metadata"
-INPUT_VARIATION_SHEET = "04_InputVariations"
-USABILITY_SHEET = "05_UsabilityNavigation"
-NON_FUNCTIONAL_SHEET = "06_NonFunctional"
+USER_STORY_BENCHMARK_SHEET = ("02_UserStory_Benchmark")
+AC_BENCHMARK_SHEET = ("03_AC_Benchmark_TestCases")
+INPUT_VARIATION_SHEET = ("04_InputVariations")
+USABILITY_SHEET = ("05_UsabilityNavigation")
+NON_FUNCTIONAL_SHEET = ("06_NonFunctional")
+BENCHMARK_METADATA_SHEET = ("07_Benchmark_Metadata")
 
-# Requirement Parser
+# Requirement Sheet
 REQUIRED_REQUIREMENT_COLUMNS = [
-    "RequirementID",
-    "RequirementType",
+    "Requirement ID",
+    "Requirement Type",
     "Title",
-    "Description/AcceptanceCriteria",
-    "BusinessRules",
+    "Description/Acceptance Criteria",
+    "Business Rules",
     "Priority",
 ]
 
-# Benchmark Parser
-REQUIRED_BENCHMARK_COLUMNS  = [
-    "RequirementID",
-    "Benchmark",
-]
-
-# Metadata Parser
-REQUIRED_METADATA_COLUMNS = [
+# User Story Benchmark Sheet
+REQUIRED_USER_STORY_BENCHMARK_COLUMNS = [
+    "Benchmark TC ID",
     "Requirement ID",
-    "Module",
+    "Scenario",
+    "Category",
+    "Priority",
+    "Precondition",
+    "Test Data",
+    "Steps",
+    "Expected Result",
+    "Source",
+    "DeepEval Reference",
 ]
 
-# QA Boat Generator (Office Ollama)
-OLLAMA_URL = "http://192.168.1.81:11434/api/generate"
+# Acceptance Criteria Benchmark Sheet
+REQUIRED_AC_BENCHMARK_COLUMNS = [
+    "TC ID",
+    "AC Ref",
+    "Test Type",
+    "Technique",
+    "Priority",
+    "Description",
+    "Precondition",
+    "Test Data",
+    "Steps",
+    "Expected Result",
+    "DeepEval Reference",
+]
+
+# Input Variations
+REQUIRED_INPUT_VARIATION_COLUMNS = [
+    "Requirement ID",
+    "Field",
+    "Variation",
+    "Category",
+    "Expected Result",
+    "DeepEval Reference",
+]
+
+# Usability / Navigation
+REQUIRED_USABILITY_COLUMNS = [
+    "Requirement ID",
+    "Scenario",
+    "Category",
+    "Expected Result",
+    "DeepEval Reference",
+]
+
+# Non-Functional
+REQUIRED_NON_FUNCTIONAL_COLUMNS = [
+    "Requirement ID",
+    "Category",
+    "Scenario",
+    "Expected Result",
+    "DeepEval Reference",
+]
+
+# Benchmark Metadata
+REQUIRED_BENCHMARK_METADATA_COLUMNS = [
+    "Field",
+    "Value",
+]
+
+#---------------Generators---------------------------
+## QA Boat
+OLLAMA_URL = ("http://192.168.1.81:11434/api/generate")
 OLLAMA_MODEL = "qwen3-coder:30b"
 OLLAMA_TIMEOUT = 300
 TEMPERATURE = 0
 
-# DeepEval Judge (Local Ollama)
+## Gemini
+GEMINI_MODEL = "gemini-2.5-flash"
+
+
+#---------------Evaluators---------------------------
+# DeepEval
 JUDGE_PROVIDER = "ollama"
-JUDGE_URL = "http://192.168.1.81:11434/api/generate"
+JUDGE_URL = ("http://192.168.1.81:11434/api/generate")
 JUDGE_MODEL = "gpt-oss:20b"
 JUDGE_TIMEOUT = 300
 
-# Future Generators
-GEMINI_MODEL = "gemini-2.5-flash"
 
-# Test Case Generation
+#----------------Test Case Quality---------------------
+#Testcase Quality & Accountability
 MIN_TEST_CASES = 5
-MAX_TEST_CASES = 15
-
-# Framework Validation
 MIN_TEST_STEPS = 2
-MAX_TEST_STEPS = 20
-MIN_DESCRIPTION_LENGTH = 10
-MIN_EXPECTED_RESULT_LENGTH = 10
-ALLOW_EMPTY_TESTDATA = False
 REQUIRE_UNIQUE_TESTCASE_IDS = True
 REQUIRE_UNIQUE_DESCRIPTIONS = True
-MIN_COVERAGE_PERCENTAGE = 90
 
-# DeepEval Thresholds
+# Overall coverage quality gate.
+MIN_COVERAGE_PERCENTAGE = 90
+COVERAGE_MATCH_THRESHOLD = 0.50
+
+
+#---------------- DeepEval Thresholds-------------------
 HALLUCINATION_THRESHOLD = 0.20
 CORRECTNESS_THRESHOLD = 0.90
-FAITHFULNESS_THRESHOLD = 0.90
 COMPLETENESS_THRESHOLD = 0.90
 RELEVANCY_THRESHOLD = 0.80
+BUSINESS_RULE_THRESHOLD = 0.90
+REQUIREMENT_THRESHOLD = 0.90
 
-# Score Weights
+#-----------------Score Weights-------------------------
 SCHEMA_WEIGHT = 0.15
 TESTCASE_WEIGHT = 0.25
 COVERAGE_WEIGHT = 0.30
 DEEPEVAL_WEIGHT = 0.30
 
+
+#-----------------Execution Config----------------
 # Evaluation
 MAX_TESTCASES_PER_BATCH = 25
 

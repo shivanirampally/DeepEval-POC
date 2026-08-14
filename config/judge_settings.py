@@ -20,9 +20,9 @@ class OllamaJudge(DeepEvalBaseLLM):
     """
 
     def __init__(self):
-        info(f"Initializing Local Judge ({JUDGE_MODEL})...")
+        info(f"Initializing Local Evaluator ({JUDGE_MODEL})...")
         self.model_name = JUDGE_MODEL
-        success(f"Local Judge Ready ({JUDGE_MODEL})")
+        success(f"Local Evaluator Ready ({JUDGE_MODEL})")
 
     # DeepEval Required Methods
     def load_model(self):
@@ -40,11 +40,7 @@ class OllamaJudge(DeepEvalBaseLLM):
         }
 
         try:
-            response = requests.post(
-                JUDGE_URL,
-                json=payload,
-                timeout=JUDGE_TIMEOUT,
-            )
+            response = requests.post(JUDGE_URL,json=payload,timeout=JUDGE_TIMEOUT,)
 
             response.raise_for_status()
             data = response.json()

@@ -8,7 +8,6 @@ def _timestamp():
 # Basic Logger
 def blank(): print()
 def separator(): print("-" * 100)
-
 def header(title: str):
     line = "=" * 100
     print(f"\n{line}")
@@ -18,15 +17,15 @@ def header(title: str):
 def info(message: str): print(f"[{_timestamp()}] {message}")
 def success(message: str): print(f"[{_timestamp()}] ✓ {message}")
 def warning(message: str): print(f"[{_timestamp()}] ⚠ {message}")
-def failed(message: str):
-    if "RESOURCE_EXHAUSTED" in message: message = "Gemini API quota exhausted."
+def failed(message: str): 
+    message = str(message)
+    if "RESOURCE_EXHAUSTED" in message: message = ("Gemini API quota exhausted.")
     print(f"[{_timestamp()}] ✗ {message}")
-
 
 # Evaluation Summary
 def evaluation_summary(result: dict):
     """
-    Print the standardized evaluation result.
+    Print the standardized DeepEval evaluation result.
 
     Expected result structure:
     result
@@ -38,37 +37,93 @@ def evaluation_summary(result: dict):
     │   ├── schema
     │   ├── testcase
     │   └── coverage
-    ├── deepeval
+    ├── deepeval_evaluation
     └── overall
     """
 
-    requirement = result.get("requirement",{},)
-    validation = result.get("testcase_quality_validation",{},)
-    deepeval = result.get("deepeval",{},)
-    overall = result.get("overall",{},)
+    requirement = result.get(
+        "requirement",
+        {},
+    )
 
-    # Header
+    validation = result.get(
+        "testcase_quality_validation",
+        {},
+    )
+
+    deepeval_evaluation = result.get(
+        "deepeval_evaluation",
+        {},
+    )
+
+    overall = result.get(
+        "overall",
+        {},
+    )
+
+    # ==========================================================
+    # Requirement
+    # ==========================================================
+
     separator()
+
     print("LLM Evaluation Summary")
+
     separator()
 
-    print(f"Generator             : "f"{result.get('generator', '')}")
-    print(f"Requirement ID        : "f"{requirement.get('id', '')}")
-    print(f"Requirement Type      : "f"{requirement.get('type', '')}")
-    print(f"Requirement Title     : "f"{requirement.get('title', '')}")
-    print(f"Priority              : "f"{requirement.get('priority', '')}")
+    print(
+        f"Generator             : "
+        f"{result.get('generator', '')}"
+    )
 
+    print(
+        f"Requirement ID        : "
+        f"{requirement.get('id', '')}"
+    )
+
+    print(
+        f"Requirement Type      : "
+        f"{requirement.get('type', '')}"
+    )
+
+    print(
+        f"Requirement Title     : "
+        f"{requirement.get('title', '')}"
+    )
+
+    print(
+        f"Priority              : "
+        f"{requirement.get('priority', '')}"
+    )
+
+    # ==========================================================
     # Test Case Quality Validation
+    # ==========================================================
+
     separator()
+
     print("Test Case Quality Validation")
+
     separator()
 
+    # ----------------------------------------------------------
     # Schema
-    schema = validation.get("schema",{},)
-    print(f"Schema Validation     : "f"{schema.get('score', 0)}%")
+    # ----------------------------------------------------------
 
-    
+    schema = validation.get(
+        "schema",
+        {},
+    )
+
+    print(
+        f"Schema Validation     : "
+        f"{schema.get('score', 0)}%"
+    )
+
+    # ----------------------------------------------------------
     # Test Case
+    # ----------------------------------------------------------
+
     testcase = validation.get(
         "testcase",
         {},
@@ -79,9 +134,9 @@ def evaluation_summary(result: dict):
         f"{testcase.get('score', 0)}%"
     )
 
-    
+    # ----------------------------------------------------------
     # Coverage
-    
+    # ----------------------------------------------------------
 
     coverage = validation.get(
         "coverage",
@@ -93,52 +148,35 @@ def evaluation_summary(result: dict):
         f"{coverage.get('score', 0)}%"
     )
 
-    
-    # Coverage Scenarios
-    
+    # ==========================================================
+    # Coverage Statistics
+    # ==========================================================
 
-    if coverage.get("covered"):
+    statistics = coverage.get(
+        "statistics",
+        {},
+    )
 
-        print(
-            f"\nCovered Scenarios "
-            f"({len(coverage['covered'])})"
-        )
+    if statistics:
 
-        for scenario in coverage["covered"]:
+        print("\nCoverage Statistics")
 
-            print(
-                f"   ✓ {scenario}"
+        for key, value in statistics.items():
+
+            formatted_key = (
+                key
+                .replace("_", " ")
+                .title()
             )
 
-    if coverage.get("missing"):
-
-        print(
-            f"\nMissing Scenarios "
-            f"({len(coverage['missing'])})"
-        )
-
-        for scenario in coverage["missing"]:
-
             print(
-                f"   ✗ {scenario}"
+                f"   {formatted_key:<30}: "
+                f"{value}"
             )
 
-    if coverage.get("additional"):
-
-        print(
-            f"\nAdditional Scenarios "
-            f"({len(coverage['additional'])})"
-        )
-
-        for scenario in coverage["additional"]:
-
-            print(
-                f"   + {scenario}"
-            )
-
-    
+    # ==========================================================
     # Coverage Errors
-    
+    # ==========================================================
 
     if coverage.get("errors"):
 
@@ -150,9 +188,9 @@ def evaluation_summary(result: dict):
                 f"   ✗ {error}"
             )
 
-    
+    # ==========================================================
     # Coverage Warnings
-    
+    # ==========================================================
 
     if coverage.get("warnings"):
 
@@ -164,54 +202,65 @@ def evaluation_summary(result: dict):
                 f"   ⚠ {warning_message}"
             )
 
-    # ======================================================
-    # AI Evaluation
-    # ======================================================
+    # ==========================================================
+    # DeepEval Evaluation
+    # ==========================================================
 
     separator()
 
-    print("AI Evaluation")
+    print("DeepEval Evaluation")
 
     separator()
 
     metrics = [
 
-        ("Hallucination", "hallucination"),
+        (
+            "Hallucination",
+            "hallucination",
+        ),
 
-        ("Correctness", "correctness"),
+        (
+            "Correctness",
+            "correctness",
+        ),
 
-        ("Faithfulness", "faithfulness"),
+        (
+            "Completeness",
+            "completeness",
+        ),
 
-        ("Completeness", "completeness"),
 
-        ("Context Precision", "context_precision"),
+        (
+            "Business Rule",
+            "business_rule",
+        ),
 
-        ("Context Recall", "context_recall"),
+        (
+            "Requirement",
+            "requirement",
+        ),
 
-        ("Business Rule", "business_rule"),
-
-        ("Requirement", "requirement"),
-
-        ("Answer Relevancy", "answer_relevancy"),
+        (
+            "Answer Relevancy",
+            "answer_relevancy",
+        ),
 
     ]
 
     for title, key in metrics:
 
-        if key not in deepeval:
+        if key not in deepeval_evaluation:
+
             continue
 
-        metric = deepeval.get(
+        metric = deepeval_evaluation.get(
             key,
             {},
         )
 
-        free = metric.get(
-            "free",
-            metric.get(
-                "score",
-                0,
-            ),
+        score = metric.get(
+            "score",
+            0,
         )
 
         risk = metric.get(
@@ -222,40 +271,42 @@ def evaluation_summary(result: dict):
 
             print(
                 f"{title:<25}: "
-                f"{free}%"
+                f"{score}%"
             )
 
         else:
 
             print(
                 f"{title:<25}: "
-                f"{free}% "
+                f"{score}% "
                 f"(Risk {risk}%)"
             )
 
-    
-    # AI Overall Score
-    
+    # ==========================================================
+    # DeepEval Overall Score
+    # ==========================================================
 
     print(
-        f"{'AI Evaluation Score':<25}: "
-        f"{deepeval.get('score', 0)}%"
+        f"{'DeepEval Score':<25}: "
+        f"{deepeval_evaluation.get('score', 0)}%"
     )
 
-    
+    # ==========================================================
     # Judge Model
-    
+    # ==========================================================
 
-    if deepeval.get("judge_model"):
+    if deepeval_evaluation.get(
+        "judge_model"
+    ):
 
         print(
             f"{'Judge Model':<25}: "
-            f"{deepeval.get('judge_model')}"
+            f"{deepeval_evaluation.get('judge_model')}"
         )
 
-    # ======================================================
+    # ==========================================================
     # Overall Evaluation
-    # ======================================================
+    # ==========================================================
 
     separator()
 
@@ -269,8 +320,8 @@ def evaluation_summary(result: dict):
     )
 
     print(
-        f"AI Evaluation          : "
-        f"{overall.get('ai_evaluation_score', 0)}%"
+        f"DeepEval Evaluation    : "
+        f"{overall.get('deepeval_evaluation_score', 0)}%"
     )
 
     print(
@@ -294,60 +345,5 @@ def evaluation_summary(result: dict):
             f"Winner                 : "
             f"{overall.get('winner')}"
         )
-
-    separator()
-
-
-# Validation Details
-
-def print_validation(
-    name: str,
-    validation_result: dict,
-):
-    """
-    Print detailed validation information.
-    """
-
-    print(f"\n{name}")
-
-    separator()
-
-    print(
-        f"Status : "
-        f"{validation_result.get('status', '')}"
-    )
-
-    print(
-        f"Score  : "
-        f"{validation_result.get('score', 0)}%"
-    )
-
-    
-    # Errors
-    
-
-    if validation_result.get("errors"):
-
-        print("\nErrors")
-
-        for error in validation_result["errors"]:
-
-            print(
-                f"  • {error}"
-            )
-
-    
-    # Warnings
-    
-
-    if validation_result.get("warnings"):
-
-        print("\nWarnings")
-
-        for warning_message in validation_result["warnings"]:
-
-            print(
-                f"  • {warning_message}"
-            )
 
     separator()

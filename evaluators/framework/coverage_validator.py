@@ -1,14 +1,18 @@
 import re
 
+from config.settings import (
+    COVERAGE_MATCH_THRESHOLD,
+    MIN_COVERAGE_PERCENTAGE,
+)
+
+
 class CoverageValidator:
     """
-    Evaluates requirement coverage using the Requirement as the
-    primary source of truth and the Benchmark Repository as a
-    reference repository.
+    Validates generated test case coverage against
+    the requirement and approved benchmark repository.
 
-    This validator does NOT directly compare against benchmark
-    test cases. The benchmark is used only to identify potential
-    missing or additional scenarios.
+    Empty benchmark sections are excluded from
+    the coverage score.
     """
 
     POSITIVE_KEYWORDS = [
@@ -49,74 +53,45 @@ class CoverageValidator:
     ]
 
     @classmethod
-    def validate(cls,requirement,generated_output,
-    ):
+    def validate(
+        cls,
+        requirement,
+        generated_output,
+    ) -> dict:
 
-        generated_cases = generated_output.get("testCases",[],)
-        generated_text = ""
+        errors = []
+        warnings = []
 
-        for testcase in generated_cases:
-            generated_text += " "
-            generated_text += testcase.get("testDescription","")
-            generated_text += " "
-            generated_text += testcase.get("expectedResult", "")
-            generated_text += " "
-            generated_text += " ".join(
-                testcase.get("testSteps",[])
-            )
+        generated_cases = generated_output.get(
+            "testCases",
+            [],
+        )
 
-        generated_text = generated_text.lower()
+        generated_text = cls._build_generated_text(
+            generated_cases
+        )
+
         covered = []
         missing = []
-        additional = []
-        warnings = []
-        errors = []
-        score = 100
 
-        # Requirement Coverage
+        # Requirement coverage
         requirement_lines = [
             line.strip()
-
             for line in requirement.description.splitlines()
             if line.strip()
         ]
 
         for line in requirement_lines:
 
-            words = re.findall(r"\w+",line.lower(),)
-            if not words:continue
-
-            matches = sum(
-                1
-                for word in words
-                if word in generated_text
-            )
-
-            if matches / len(words) >= 0.50:covered.append(line)
+            if cls._text_matches(
+                line,
+                generated_text,
+            ):
+                covered.append(line)
             else:
                 missing.append(line)
 
-        if missing:
-            score -= len(missing) * 5
-            warnings.append(f"{len(missing)} requirement scenario(s) not covered.")
-
-        # Benchmark Repository Analysis
-        benchmark_descriptions = {
-            testcase.description.lower()
-            for testcase in requirement.benchmark_repository
-        }
-
-        generated_descriptions = {
-            testcase.get("testDescription","").lower()
-            for testcase in generated_cases
-        }
-
-        for scenario in generated_descriptions:
-            if scenario not in benchmark_descriptions:
-                additional.append(scenario)
-
-        # Business Rule Coverage
-
+        # Business rule coverage
         business_rules = (
             requirement.business_rules or ""
         ).strip()
@@ -125,77 +100,290 @@ class CoverageValidator:
 
         if business_rules:
 
-            keywords = re.findall(
-                r"\w+",
-                business_rules.lower(),
+            business_rule_covered = (
+                cls._text_matches(
+                    business_rules,
+                    generated_text,
+                )
             )
 
-            matched = sum(
+            if not business_rule_covered:
 
-                1
+                warnings.append(
+                    "Business rules are partially covered."
+                )
 
-                for keyword in keywords
+        # Acceptance Criteria coverage
+        acceptance_criteria = getattr(
+            requirement,
+            "acceptance_criteria",
+            [],
+        )
 
-                if keyword in generated_text
+        acceptance_criteria_covered = 0
+        acceptance_criteria_missing = 0
 
+        for acceptance_criterion in acceptance_criteria:
+
+            description = cls._normalize(
+                getattr(
+                    acceptance_criterion,
+                    "description",
+                    "",
+                )
             )
 
-            if keywords:
+            title = cls._normalize(
+                getattr(
+                    acceptance_criterion,
+                    "title",
+                    "",
+                )
+            )
 
-                coverage = matched / len(keywords)
+            reference = (
+                f"{description} {title}".strip()
+            )
 
-                if coverage < 0.50:
+            if not reference:
+                continue
 
-                    business_rule_covered = False
+            if cls._text_matches(
+                reference,
+                generated_text,
+            ):
+                acceptance_criteria_covered += 1
+            else:
+                acceptance_criteria_missing += 1
 
-                    score -= 10
+        if acceptance_criteria_missing:
 
-                    warnings.append(
-                        "Business rules are partially covered."
-                    )
+            warnings.append(
+                f"{acceptance_criteria_missing} "
+                "acceptance criteria not covered."
+            )
 
-        # Scenario Detection
+        # User Story benchmark coverage
+        user_story_benchmarks = getattr(
+            requirement,
+            "user_story_benchmarks",
+            [],
+        )
+
+        user_story_covered = 0
+        user_story_missing = 0
+
+        for benchmark in user_story_benchmarks:
+
+            scenario = cls._normalize(
+                getattr(
+                    benchmark,
+                    "scenario",
+                    "",
+                )
+            )
+
+            if not scenario:
+                continue
+
+            if cls._text_matches(
+                scenario,
+                generated_text,
+            ):
+                user_story_covered += 1
+            else:
+                user_story_missing += 1
+
+        if user_story_missing:
+
+            warnings.append(
+                f"{user_story_missing} "
+                "user story benchmark scenario(s) "
+                "not covered."
+            )
+
+        # Coverage values
+        coverage_values = []
+        excluded_sections = []
+
+        requirement_coverage = 100
+
+        if requirement_lines:
+
+            requirement_coverage = round(
+                (
+                    len(covered)
+                    / len(requirement_lines)
+                ) * 100,
+                2,
+            )
+
+            coverage_values.append(
+                requirement_coverage
+            )
+        else:
+            excluded_sections.append(
+                "Requirement coverage"
+            )
+
+        user_story_total = (
+            user_story_covered
+            + user_story_missing
+        )
+
+        user_story_coverage = 100
+
+        if user_story_total:
+
+            user_story_coverage = round(
+                (
+                    user_story_covered
+                    / user_story_total
+                ) * 100,
+                2,
+            )
+
+            coverage_values.append(
+                user_story_coverage
+            )
+        else:
+            excluded_sections.append(
+                "User Story benchmark coverage"
+            )
+
+        acceptance_total = (
+            acceptance_criteria_covered
+            + acceptance_criteria_missing
+        )
+
+        acceptance_coverage = 100
+
+        if acceptance_total:
+
+            acceptance_coverage = round(
+                (
+                    acceptance_criteria_covered
+                    / acceptance_total
+                ) * 100,
+                2,
+            )
+
+            coverage_values.append(
+                acceptance_coverage
+            )
+        else:
+            excluded_sections.append(
+                "Acceptance Criteria coverage"
+            )
+
+        # Overall coverage
+        if coverage_values:
+
+            overall_coverage = round(
+                sum(coverage_values)
+                / len(coverage_values),
+                2,
+            )
+
+        else:
+
+            overall_coverage = 0
+
+        score = overall_coverage
+
+        # Coverage quality gate
+        if score < MIN_COVERAGE_PERCENTAGE:
+
+            warnings.append(
+                f"Coverage score is below the "
+                f"{MIN_COVERAGE_PERCENTAGE}% threshold."
+            )
+
+        if missing:
+
+            warnings.append(
+                f"{len(missing)} requirement "
+                "scenario(s) not covered."
+            )
+
+        # Excluded sections
+        if excluded_sections:
+
+            warnings.append(
+                "Excluded from coverage score: "
+                + ", ".join(excluded_sections)
+                + " because no data was provided."
+            )
 
         statistics = {
 
-            "positive": cls._count_keywords(
-                generated_text,
-                cls.POSITIVE_KEYWORDS,
-            ),
+            "requirement_coverage":
+                requirement_coverage,
 
-            "negative": cls._count_keywords(
-                generated_text,
-                cls.NEGATIVE_KEYWORDS,
-            ),
+            "user_story_coverage":
+                user_story_coverage,
 
-            "boundary": cls._count_keywords(
-                generated_text,
-                cls.BOUNDARY_KEYWORDS,
-            ),
+            "acceptance_criteria_coverage":
+                acceptance_coverage,
 
-            "edge": cls._count_keywords(
-                generated_text,
-                cls.EDGE_KEYWORDS,
-            ),
+            "requirement_total":
+                len(requirement_lines),
 
+            "requirement_covered":
+                len(covered),
+
+            "requirement_missing":
+                len(missing),
+
+            "user_story_total":
+                user_story_total,
+
+            "user_story_covered":
+                user_story_covered,
+
+            "user_story_missing":
+                user_story_missing,
+
+            "acceptance_criteria_total":
+                acceptance_total,
+
+            "acceptance_criteria_covered":
+                acceptance_criteria_covered,
+
+            "acceptance_criteria_missing":
+                acceptance_criteria_missing,
+
+            "excluded_sections":
+                excluded_sections,
+
+            "positive":
+                cls._count_keywords(
+                    generated_text,
+                    cls.POSITIVE_KEYWORDS,
+                ),
+
+            "negative":
+                cls._count_keywords(
+                    generated_text,
+                    cls.NEGATIVE_KEYWORDS,
+                ),
+
+            "boundary":
+                cls._count_keywords(
+                    generated_text,
+                    cls.BOUNDARY_KEYWORDS,
+                ),
+
+            "edge":
+                cls._count_keywords(
+                    generated_text,
+                    cls.EDGE_KEYWORDS,
+                ),
         }
-
-        # Requirement Satisfaction
-
-        requirement_satisfied = (
-            len(missing) == 0
-            and business_rule_covered
-        )
-
-        if not requirement_satisfied:
-
-            score -= 10
-
-        score = max(score, 0)
 
         return {
 
-            "validator": "Coverage Validator",
+            "validator": "CoverageValidator",
 
             "status": "SUCCESS",
 
@@ -205,30 +393,102 @@ class CoverageValidator:
 
             "missing": missing,
 
-            "additional": additional,
+            "requirement_satisfied": (
+                not missing
+                and business_rule_covered
+            ),
 
-            "requirement_satisfied": requirement_satisfied,
-
-            "business_rule_covered": business_rule_covered,
+            "business_rule_covered":
+                business_rule_covered,
 
             "statistics": statistics,
 
             "errors": errors,
 
             "warnings": warnings,
-
         }
+
+    @staticmethod
+    def _build_generated_text(
+        generated_cases,
+    ) -> str:
+
+        parts = []
+
+        for testcase in generated_cases:
+
+            parts.append(
+                testcase.get(
+                    "testDescription",
+                    "",
+                )
+            )
+
+            parts.append(
+                testcase.get(
+                    "expectedResult",
+                    "",
+                )
+            )
+
+            parts.extend(
+                testcase.get(
+                    "testSteps",
+                    [],
+                )
+            )
+
+        return " ".join(
+            str(value)
+            for value in parts
+            if value
+        ).lower()
+
+    @staticmethod
+    def _text_matches(
+        reference,
+        generated_text,
+    ) -> bool:
+
+        words = re.findall(
+            r"\w+",
+            reference.lower(),
+        )
+
+        if not words:
+            return True
+
+        matches = sum(
+            1
+            for word in words
+            if word in generated_text
+        )
+
+        return (
+            matches / len(words)
+            >= COVERAGE_MATCH_THRESHOLD
+        )
+
+    @staticmethod
+    def _normalize(value) -> str:
+
+        if value is None:
+            return ""
+
+        return " ".join(
+            str(value)
+            .strip()
+            .lower()
+            .split()
+        )
 
     @staticmethod
     def _count_keywords(
         text,
         keywords,
-    ):
+    ) -> int:
 
         return sum(
-
             text.count(keyword)
-
             for keyword in keywords
-
         )

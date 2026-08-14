@@ -1,233 +1,202 @@
 from config.settings import (
     MIN_TEST_CASES,
-    MAX_TEST_CASES,
+    MIN_TEST_STEPS,
+    REQUIRE_UNIQUE_TESTCASE_IDS,
+    REQUIRE_UNIQUE_DESCRIPTIONS,
 )
 
 
 class TestCaseValidator:
     """
-    Validates the quality of generated test cases.
+    Validates the quality of QA Boat generated test cases.
 
-    This validator assumes SchemaValidator has already
-    validated the JSON structure.
+    Schema structure is validated separately by SchemaValidator.
 
-    Responsibilities:
-    - Test case count
-    - Duplicate IDs
-    - Duplicate descriptions
-    - Duplicate expected results
-    - Empty fields
-    - Minimum test steps
-    - Duplicate steps
+    This validator performs only quality and accountability checks
+    required for the QA Boat output.
     """
+
+    REQUIRED_FIELDS = [
+        "testCaseId",
+        "testDescription",
+        "testSteps",
+        "expectedResult",
+    ]
 
     @classmethod
     def validate(cls, generated_output: dict) -> dict:
-
         errors = []
         warnings = []
-
-        score = 100
 
         statistics = {
             "total_testcases": 0,
             "duplicate_ids": 0,
             "duplicate_descriptions": 0,
+            "duplicate_complete_testcases": 0,
             "duplicate_expected_results": 0,
             "duplicate_steps": 0,
-            "empty_descriptions": 0,
-            "empty_expected_results": 0,
             "invalid_step_count": 0,
+            "missing_fields": 0,
         }
 
         testcases = generated_output.get("testCases", [])
-
         statistics["total_testcases"] = len(testcases)
 
-        # -----------------------------------------------------
-        # Test Case Count
-        # -----------------------------------------------------
-
+        # Minimum test case count
         if len(testcases) < MIN_TEST_CASES:
-
             errors.append(
-                f"Minimum {MIN_TEST_CASES} test cases expected."
+                f"Minimum {MIN_TEST_CASES} test cases required. "
+                f"Generated {len(testcases)}."
             )
 
-            score -= 10
-
-        if len(testcases) > MAX_TEST_CASES:
-
-            errors.append(
-                f"Maximum {MAX_TEST_CASES} test cases allowed."
-            )
-
-            score -= 10
-
-        ids = set()
+        testcase_ids = set()
         descriptions = set()
         expected_results = set()
+        complete_testcases = set()
 
-        # -----------------------------------------------------
-        # Individual Test Case Validation
-        # -----------------------------------------------------
-
+        # Validate individual test cases
         for index, testcase in enumerate(testcases, start=1):
 
-            testcase_id = testcase.get("testCaseId", "").strip()
+            if not isinstance(testcase, dict):
+                errors.append(
+                    f"Test Case {index} must be an object."
+                )
+                continue
 
-            description = testcase.get(
-                "testDescription",
-                "",
-            ).strip()
+            # Required fields
+            for field in cls.REQUIRED_FIELDS:
+                if field not in testcase:
+                    errors.append(
+                        f"Test Case {index}: "
+                        f"Missing '{field}'."
+                    )
+                    statistics["missing_fields"] += 1
 
-            expected_result = testcase.get(
-                "expectedResult",
-                "",
-            ).strip()
-
-            steps = testcase.get(
-                "testSteps",
-                [],
+            testcase_id = cls._normalize(
+                testcase.get("testCaseId", "")
             )
 
-            # -----------------------------------------
-            # Duplicate Test Case ID
-            # -----------------------------------------
+            description = cls._normalize(
+                testcase.get("testDescription", "")
+            )
 
-            if testcase_id:
+            expected_result = cls._normalize(
+                testcase.get("expectedResult", "")
+            )
 
-                if testcase_id in ids:
+            steps = testcase.get("testSteps", [])
 
+            # Test case ID uniqueness
+            if REQUIRE_UNIQUE_TESTCASE_IDS and testcase_id:
+                if testcase_id in testcase_ids:
                     errors.append(
-                        f"Duplicate TestCaseId '{testcase_id}'."
+                        f"Duplicate test case ID: "
+                        f"'{testcase.get('testCaseId')}'."
                     )
-
                     statistics["duplicate_ids"] += 1
+                else:
+                    testcase_ids.add(testcase_id)
 
-                    score -= 5
-
-                ids.add(testcase_id)
-
-            # -----------------------------------------
-            # Empty Description
-            # -----------------------------------------
-
-            if not description:
-
-                errors.append(
-                    f"Test Case {index}: Description is empty."
-                )
-
-                statistics["empty_descriptions"] += 1
-
-                score -= 5
-
-            else:
-
-                normalized = description.lower()
-
-                if normalized in descriptions:
-
+            # Test description uniqueness
+            if REQUIRE_UNIQUE_DESCRIPTIONS and description:
+                if description in descriptions:
                     warnings.append(
-                        f"Duplicate Description in Test Case {index}."
+                        f"Test Case {index}: "
+                        "Duplicate test description."
                     )
+                    statistics["duplicate_descriptions"] += 1
+                else:
+                    descriptions.add(description)
 
-                    statistics[
-                        "duplicate_descriptions"
-                    ] += 1
-
-                    score -= 3
-
-                descriptions.add(normalized)
-
-            # -----------------------------------------
-            # Expected Result
-            # -----------------------------------------
-
-            if not expected_result:
-
-                errors.append(
-                    f"Test Case {index}: Expected Result is empty."
-                )
-
-                statistics[
-                    "empty_expected_results"
-                ] += 1
-
-                score -= 5
-
-            else:
-
-                normalized = expected_result.lower()
-
-                if normalized in expected_results:
-
+            # Expected result duplicates
+            if expected_result:
+                if expected_result in expected_results:
                     warnings.append(
-                        f"Duplicate Expected Result in Test Case {index}."
+                        f"Test Case {index}: "
+                        "Duplicate expected result."
                     )
+                    statistics["duplicate_expected_results"] += 1
+                else:
+                    expected_results.add(expected_result)
 
-                    statistics[
-                        "duplicate_expected_results"
-                    ] += 1
-
-                    score -= 3
-
-                expected_results.add(normalized)
-
-            # -----------------------------------------
-            # Test Steps
-            # -----------------------------------------
-
-            if len(steps) < 2:
-
+            # Test steps
+            if not isinstance(steps, list):
                 errors.append(
-                    f"Test Case {index}: Minimum two test steps required."
+                    f"Test Case {index}: "
+                    "'testSteps' must be an array."
                 )
+                continue
 
-                statistics[
-                    "invalid_step_count"
-                ] += 1
+            if len(steps) < MIN_TEST_STEPS:
+                errors.append(
+                    f"Test Case {index}: "
+                    f"Minimum {MIN_TEST_STEPS} test steps required. "
+                    f"Generated {len(steps)}."
+                )
+                statistics["invalid_step_count"] += 1
 
-                score -= 5
-
+            # Duplicate steps within the same test case
             seen_steps = set()
 
             for step in steps:
+                if not isinstance(step, str):
+                    continue
 
-                normalized = step.strip().lower()
+                normalized_step = cls._normalize(step)
 
-                if normalized in seen_steps:
+                if not normalized_step:
+                    continue
 
+                if normalized_step in seen_steps:
                     warnings.append(
-                        f"Duplicate Step in Test Case {index}: '{step}'"
+                        f"Test Case {index}: "
+                        f"Duplicate step detected: '{step}'."
                     )
+                    statistics["duplicate_steps"] += 1
+                else:
+                    seen_steps.add(normalized_step)
 
-                    statistics[
-                        "duplicate_steps"
-                    ] += 1
+            # Duplicate complete test case
+            normalized_steps = tuple(
+                cls._normalize(step)
+                for step in steps
+                if isinstance(step, str)
+            )
 
-                    score -= 2
+            testcase_signature = (
+                description,
+                normalized_steps,
+                expected_result,
+            )
 
-                seen_steps.add(normalized)
+            if testcase_signature in complete_testcases:
+                warnings.append(
+                    f"Test Case {index}: "
+                    "Duplicate complete test case."
+                )
+                statistics["duplicate_complete_testcases"] += 1
+            else:
+                complete_testcases.add(testcase_signature)
 
-        score = max(score, 0)
+        score = 100 if not errors else 0
 
         return {
-
             "validator": "TestCaseValidator",
-
-            "status": (
-                "SUCCESS"
-                if not errors
-                else "FAILED"
-            ),
-
+            "status": "SUCCESS" if not errors else "FAILED",
             "score": score,
-
             "errors": errors,
-
             "warnings": warnings,
-
             "statistics": statistics,
         }
+
+    @staticmethod
+    def _normalize(value) -> str:
+        if value is None:
+            return ""
+
+        return " ".join(
+            str(value)
+            .strip()
+            .lower()
+            .split()
+        )
