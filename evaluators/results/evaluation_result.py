@@ -26,6 +26,7 @@ class EvaluationResult:
         testcase,
         coverage,
         deepeval_evaluation,
+        requirement_only_evaluation=None,   
         score,
     ):
 
@@ -374,7 +375,9 @@ class EvaluationResult:
             # ======================================================
 
             "deepeval_evaluation": deepeval_evaluation,
-
+            "requirement_only_evaluation": (
+                requirement_only_evaluation
+            ),
             # ======================================================
             # Overall Score
             # ======================================================

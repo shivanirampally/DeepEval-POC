@@ -29,6 +29,10 @@ from evaluators.metrics.answer_relevancy_metric import (
     AnswerRelevancyEvaluator,
 )
 
+from evaluators.requirement_quality_metric import (
+    RequirementQualityEvaluator,
+)
+
 from utils.logger import (
     info,
     success,
@@ -38,48 +42,86 @@ from utils.logger import (
 
 class DeepEvalMetrics:
     """
-    Runs DeepEval metrics against QA Boat generated
-    test cases.
+    Central DeepEval evaluation service.
 
-    DeepEval receives:
+    Two evaluation modes are supported.
 
-        actual_output
-            -> Raw QA Boat generated test cases
+    ------------------------------------------------------------
+    MODE 1 - BENCHMARK EVALUATION
+    ------------------------------------------------------------
 
-        expected_output
-            -> Benchmark/reference test cases
+    Generated Output
+            +
+    Benchmark / Ground Truth
+            +
+    Requirement Context
+            ↓
+        DeepEval
 
-        context
-            -> Requirement and business context
+    Metrics:
+        - Hallucination
+        - Correctness
+        - Completeness
+        - Business Rule Coverage
+        - Requirement Satisfaction
+        - Answer Relevancy
 
-    The benchmark reference is built from the
-    EvaluationJsonBuilder output so that DeepEval
-    works with dictionaries rather than BenchmarkTestCase
-    model objects.
+    ------------------------------------------------------------
+    MODE 2 - REQUIREMENT-ONLY EVALUATION
+    ------------------------------------------------------------
+
+    Generated Output
+            +
+    Requirement Context
+            ↓
+        DeepEval
+
+    No benchmark is used.
+
+    Metrics:
+        - Hallucination
+        - Answer Relevancy
+        - Requirement Alignment
+
+    The two scores are intentionally kept separate.
     """
 
     def __init__(self):
 
         evaluator = OllamaJudge()
 
-        self.hallucination = HallucinationEvaluator(
-            evaluator
+        # ======================================================
+        # Benchmark Metrics
+        # ======================================================
+
+        self.hallucination = (
+            HallucinationEvaluator(
+                evaluator
+            )
         )
 
-        self.correctness = CorrectnessEvaluator(
-            evaluator
+        self.correctness = (
+            CorrectnessEvaluator(
+                evaluator
+            )
         )
 
-        self.completeness = CompletenessEvaluator(
-            evaluator
+        self.completeness = (
+            CompletenessEvaluator(
+                evaluator
+            )
         )
 
-        self.business_rule = BusinessRuleEvaluator(
-            evaluator
+        self.business_rule = (
+            BusinessRuleEvaluator(
+                evaluator
+            )
         )
 
-        self.requirement = RequirementEvaluator(
-            evaluator
+        self.requirement = (
+            RequirementEvaluator(
+                evaluator
+            )
         )
 
         self.answer_relevancy = (
@@ -88,8 +130,18 @@ class DeepEvalMetrics:
             )
         )
 
+        # ======================================================
+        # Requirement-Only Metric
+        # ======================================================
+
+        self.requirement_quality = (
+            RequirementQualityEvaluator(
+                evaluator
+            )
+        )
+
     # ==========================================================
-    # EVALUATE
+    # BENCHMARK EVALUATION
     # ==========================================================
 
     def evaluate(
@@ -103,7 +155,7 @@ class DeepEvalMetrics:
         try:
 
             # ==================================================
-            # Actual QA Boat Output
+            # Actual Generated Output
             # ==================================================
 
             actual_output = json.dumps(
@@ -127,7 +179,7 @@ class DeepEvalMetrics:
             # ==================================================
 
             info(
-                "Preparing DeepEval test case..."
+                "Preparing DeepEval benchmark test case..."
             )
 
             info(
@@ -145,7 +197,6 @@ class DeepEvalMetrics:
             # ==================================================
 
             test_case = LLMTestCase(
-
                 input=requirement.description,
 
                 actual_output=actual_output,
@@ -232,7 +283,7 @@ class DeepEvalMetrics:
             )
 
             # ==================================================
-            # Requirement
+            # Requirement Satisfaction
             # ==================================================
 
             info(
@@ -268,7 +319,7 @@ class DeepEvalMetrics:
             )
 
             # ==================================================
-            # DeepEval Overall Score
+            # DeepEval Benchmark Score
             # ==================================================
 
             deepeval_score = round(
@@ -293,6 +344,8 @@ class DeepEvalMetrics:
 
                 "status": "SUCCESS",
 
+                "evaluation_type": "Benchmark",
+
                 "score": deepeval_score,
 
                 "hallucination": hallucination,
@@ -313,7 +366,206 @@ class DeepEvalMetrics:
         except Exception as exception:
 
             failed(
-                f"DeepEval Evaluation Failed : "
+                "DeepEval Benchmark Evaluation Failed : "
+                f"{exception}"
+            )
+
+            raise
+
+    # ==========================================================
+    # REQUIREMENT-ONLY EVALUATION
+    # ==========================================================
+
+    def evaluate_requirement_only(
+        self,
+        *,
+        requirement,
+        generated_output,
+    ):
+
+        try:
+
+            # ==================================================
+            # Generated Output
+            # ==================================================
+
+            actual_output = json.dumps(
+                generated_output,
+                indent=2,
+                ensure_ascii=False,
+            )
+
+            # ==================================================
+            # Requirement Context
+            # ==================================================
+
+            requirement_context = (
+                f"Requirement ID: "
+                f"{requirement.requirement_id}\n\n"
+
+                f"Requirement Type: "
+                f"{requirement.requirement_type}\n\n"
+
+                f"Title: "
+                f"{requirement.title}\n\n"
+
+                f"Description / Acceptance Criteria:\n"
+                f"{requirement.description}\n\n"
+
+                f"Business Rules:\n"
+                f"{requirement.business_rules or ''}\n\n"
+
+                f"Priority:\n"
+                f"{requirement.priority}"
+            )
+
+            # ==================================================
+            # DeepEval Test Case
+            # ==================================================
+
+            test_case = LLMTestCase(
+                input=requirement_context,
+
+                actual_output=actual_output,
+
+                context=[
+                    requirement_context,
+                ],
+            )
+
+            info(
+                "Preparing Requirement-Only DeepEval test case..."
+            )
+
+            # ==================================================
+            # Hallucination
+            # ==================================================
+
+            info(
+                "Running Requirement-Only Hallucination..."
+            )
+
+            hallucination = (
+                self.hallucination.evaluate(
+                    test_case
+                )
+            )
+
+            success(
+                "Requirement-Only Hallucination Completed"
+            )
+
+            # ==================================================
+            # Answer Relevancy
+            # ==================================================
+
+            info(
+                "Running Requirement-Only Answer Relevancy..."
+            )
+
+            answer_relevancy = (
+                self.answer_relevancy.evaluate(
+                    test_case
+                )
+            )
+
+            success(
+                "Requirement-Only Answer Relevancy Completed"
+            )
+
+            # ==================================================
+            # Requirement Alignment
+            # ==================================================
+
+            info(
+                "Running Requirement Alignment..."
+            )
+
+            requirement_quality = (
+                self.requirement_quality.evaluate(
+                    test_case
+                )
+            )
+
+            success(
+                "Requirement Alignment Completed"
+            )
+
+            # ==================================================
+            # Requirement-Only Score
+            # ==================================================
+
+            requirement_only_score = round(
+                (
+                    hallucination["score"]
+                    + answer_relevancy["score"]
+                    + requirement_quality["score"]
+                ) / 3,
+                2,
+            )
+
+            # ==================================================
+            # Findings
+            # ==================================================
+
+            findings = []
+
+            if hallucination.get("gap", 0) > 0:
+
+                findings.append(
+                    f"Hallucination gap: "
+                    f"{hallucination['gap']}%"
+                )
+
+            if answer_relevancy.get("gap", 0) > 0:
+
+                findings.append(
+                    f"Answer relevancy gap: "
+                    f"{answer_relevancy['gap']}%"
+                )
+
+            if requirement_quality.get("gap", 0) > 0:
+
+                findings.append(
+                    f"Requirement alignment gap: "
+                    f"{requirement_quality['gap']}%"
+                )
+
+            # ==================================================
+            # Result
+            # ==================================================
+
+            return {
+
+                "validator": (
+                    "DeepEval Requirement-Only"
+                ),
+
+                "status": "SUCCESS",
+
+                "evaluation_type": (
+                    "Requirement-Only"
+                ),
+
+                "score": requirement_only_score,
+
+                "hallucination": hallucination,
+
+                "answer_relevancy": answer_relevancy,
+
+                "requirement_quality": (
+                    requirement_quality
+                ),
+
+                "findings": findings,
+
+                "evaluator_model": JUDGE_MODEL,
+            }
+
+        except Exception as exception:
+
+            failed(
+                "Requirement-Only Evaluation Failed : "
                 f"{exception}"
             )
 

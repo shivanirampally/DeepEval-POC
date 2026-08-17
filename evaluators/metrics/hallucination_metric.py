@@ -3,19 +3,40 @@ from config.settings import HALLUCINATION_THRESHOLD
 
 
 class HallucinationEvaluator:
-    def __init__(self, judge):
+
+    def __init__(self, evaluator):
+
         self.metric = HallucinationMetric(
             threshold=HALLUCINATION_THRESHOLD,
-            model=judge,
+            model=evaluator,
         )
 
     def evaluate(self, test_case):
+
         self.metric.measure(test_case)
-        risk = round(self.metric.score * 100, 2,)
-        score = round(100 - risk, 2,)
+
+        risk = round(
+            self.metric.score * 100,
+            2,
+        )
+
+        free = round(
+            100 - risk,
+            2,
+        )
+
         return {
-            "score": score,
-            "risk": risk,
+            "score": free,
+            "gap": risk,
             "reason": self.metric.reason,
-            "passed": risk <= (HALLUCINATION_THRESHOLD * 100),
+            "recommendation": (
+                "Review generated content for unsupported "
+                "functionality or assumptions."
+                if risk > 0
+                else
+                "No hallucination risk detected."
+            ),
+            "passed": risk <= (
+                HALLUCINATION_THRESHOLD * 100
+            ),
         }

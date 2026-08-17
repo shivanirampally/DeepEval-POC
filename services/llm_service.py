@@ -1,7 +1,6 @@
 import requests
 
 from config.settings import (
-    OLLAMA_URL,
     OLLAMA_TIMEOUT,
     TEMPERATURE,
 )
@@ -9,14 +8,14 @@ from config.settings import (
 
 class LLMService:
     """
-    Central service responsible for communicating
-    with all LLM providers.
+    Central service for Ollama-based generators.
 
-    Currently supports:
-        • QA Boat (Qwen)
-        • Phi3
-        • Qwen
-        • Future Ollama models
+    Supports different Ollama endpoints through
+    the base_url parameter.
+
+    Examples:
+        Qwen3 -> remote Ollama server
+        Phi3  -> local Ollama server
     """
 
     @staticmethod
@@ -24,6 +23,7 @@ class LLMService:
         *,
         prompt: str,
         model: str,
+        base_url: str,
     ) -> str:
 
         payload = {
@@ -36,11 +36,13 @@ class LLMService:
         }
 
         response = requests.post(
-            OLLAMA_URL,
+            base_url,
             json=payload,
             timeout=OLLAMA_TIMEOUT,
         )
 
         response.raise_for_status()
 
-        return response.json()["response"]
+        data = response.json()
+
+        return data["response"]

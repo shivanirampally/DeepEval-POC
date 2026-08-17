@@ -1,38 +1,71 @@
 import requests
+
 from deepeval.models import DeepEvalBaseLLM
-from config.settings import (JUDGE_URL,JUDGE_MODEL,JUDGE_TIMEOUT,)
-from utils.logger import (info,success,failed,)
+
+from config.settings import (
+    JUDGE_URL,
+    JUDGE_MODEL,
+    JUDGE_TIMEOUT,
+)
+
+from utils.logger import (
+    info,
+    success,
+    failed,
+)
 
 
 class OllamaJudge(DeepEvalBaseLLM):
     """
-    Local Ollama Judge for DeepEval.
+    Local Ollama Evaluator for DeepEval.
+
     Architecture
-    QA Boat (Office Server)
+    ------------
+    Generated Test Cases
             ↓
-      Generated Test Cases
+    Framework Validation
             ↓
-       Framework Validation
+        DeepEval
             ↓
-          DeepEval
+      Ollama Evaluator
             ↓
-      Phi3 (Local Ollama)
+        gpt-oss:20b
     """
 
     def __init__(self):
-        info(f"Initializing Local Evaluator ({JUDGE_MODEL})...")
-        self.model_name = JUDGE_MODEL
-        success(f"Local Evaluator Ready ({JUDGE_MODEL})")
 
+        info(
+            f"Initializing Local Evaluator "
+            f"({JUDGE_MODEL})..."
+        )
+
+        self.model_name = JUDGE_MODEL
+
+        success(
+            f"Local Evaluator Ready "
+            f"({JUDGE_MODEL})"
+        )
+
+    # =========================================================
     # DeepEval Required Methods
+    # =========================================================
+
     def load_model(self):
         return self
 
     def get_model_name(self):
         return self.model_name
 
-    # Synchronous Generation
-    def generate(self, prompt: str, **kwargs) -> str:
+    # =========================================================
+    # Ollama Request
+    # =========================================================
+
+    def generate(
+        self,
+        prompt: str,
+        **kwargs,
+    ) -> str:
+
         payload = {
             "model": self.model_name,
             "prompt": prompt,
@@ -40,28 +73,65 @@ class OllamaJudge(DeepEvalBaseLLM):
         }
 
         try:
-            response = requests.post(JUDGE_URL,json=payload,timeout=JUDGE_TIMEOUT,)
+
+            response = requests.post(
+                JUDGE_URL,
+                json=payload,
+                timeout=JUDGE_TIMEOUT,
+            )
 
             response.raise_for_status()
+
             data = response.json()
 
             if "response" not in data:
 
                 raise RuntimeError(
-                    f"Unexpected Ollama response: {data}"
+                    f"Unexpected Ollama response: "
+                    f"{data}"
                 )
 
             return data["response"]
 
         except Exception as exception:
 
-            failed(str(exception))
+            failed(
+                f"Evaluator generation failed: "
+                f"{exception}"
+            )
+
             raise
 
-    # ---------------------------------------------------------
+    # =========================================================
+    # DeepEval Async Generation
+    # =========================================================
+
+    async def a_generate(
+        self,
+        prompt: str,
+        **kwargs,
+    ) -> str:
+
+        return self.generate(
+            prompt,
+            **kwargs,
+        )
+
+    # =========================================================
+    # DeepEval Raw Async Response
+    # =========================================================
+
+     # =========================================================
     # Asynchronous Generation
-    # ---------------------------------------------------------
+    # =========================================================
 
-    async def a_generate(self, prompt: str, **kwargs) -> str:
+    async def a_generate(
+        self,
+        prompt: str,
+        **kwargs,
+    ) -> str:
 
-        return self.generate(prompt, **kwargs)
+        return self.generate(
+            prompt,
+            **kwargs,
+        )

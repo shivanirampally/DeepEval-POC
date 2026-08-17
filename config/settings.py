@@ -1,3 +1,7 @@
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 """
 Application Configuration
 """
@@ -90,15 +94,58 @@ REQUIRED_BENCHMARK_METADATA_COLUMNS = [
 ]
 
 #---------------Generators---------------------------
-## QA Boat
-OLLAMA_URL = ("http://192.168.1.81:11434/api/generate")
-OLLAMA_MODEL = "qwen3-coder:30b"
+## Ollama
+
+OLLAMA_QWEN_URL = os.getenv(
+    "OLLAMA_QWEN_URL",
+    "http://192.168.1.81:11434/api/generate",
+)
+
+OLLAMA_QWEN_MODEL = os.getenv(
+    "OLLAMA_QWEN_MODEL",
+    "qwen3-coder:30b",
+)
+
+OLLAMA_PHI3_URL = os.getenv(
+    "OLLAMA_PHI3_URL",
+    "http://localhost:11434/api/generate",
+)
+
+OLLAMA_PHI3_MODEL = os.getenv(
+    "OLLAMA_PHI3_MODEL",
+    "phi3",
+)
+
 OLLAMA_TIMEOUT = 300
 TEMPERATURE = 0.5
 
-## Gemini
-GEMINI_MODEL = "gemini-2.5-flash"
+## DeepSeek
 
+DEEPSEEK_API_KEY = os.getenv(
+    "DEEPSEEK_API_KEY"
+)
+
+DEEPSEEK_BASE_URL = os.getenv(
+    "DEEPSEEK_BASE_URL",
+    "https://api.deepseek.com",
+)
+
+DEEPSEEK_MODEL = os.getenv(
+    "DEEPSEEK_MODEL",
+    "deepseek-v4-flash",
+)
+DEEPSEEK_TIMEOUT = 300
+
+## Gemini
+
+GEMINI_API_KEY = os.getenv(
+    "GEMINI_API_KEY"
+)
+
+GEMINI_MODEL = os.getenv(
+    "GEMINI_MODEL",
+    "gemini-flash-latest",
+)
 
 #---------------Evaluators---------------------------
 # DeepEval
