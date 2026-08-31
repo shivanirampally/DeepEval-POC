@@ -1,9 +1,7 @@
 from pathlib import Path
-import time
 
 from config.settings import (
     INPUT_WORKBOOK,
-    OLLAMA_MODEL,
     MAX_REQUIREMENTS,
 )
 
@@ -11,16 +9,8 @@ from parsers.requirement_parser import (
     RequirementParser,
 )
 
-from prompts.generation_prompt import (
-    GenerationPromptBuilder,
-)
-
-from services.llm_service import (
-    LLMService,
-)
-
-from services.generated_json_storage import (
-    GeneratedJsonStorage,
+from loaders.qa_boat_excel_loader import (
+    QABoatExcelLoader,
 )
 
 from services.evaluation_json_builder import (
@@ -39,22 +29,31 @@ from utils.logger import (
     header,
     info,
     success,
-    warning,
     failed,
-    evaluation_summary,
 )
 
+
+QA_BOAT_EXCEL = (
+    "input/qa_boat/"
+    "DeepEval-login-scenarios-2026-08-17-07-03-32.xlsx"
+)
 
 GENERATOR_NAME = "QA Boat"
 
 
 def main():
 
-    header("QA BOAT → DEEPEVAL POC")
+    header(
+        "QA BOAT → DEEPEVAL EVALUATION"
+    )
 
     # ==========================================================
-    # 1. Load Requirements
+    # 1. Load Requirement Repository
     # ==========================================================
+
+    info(
+        "Loading requirement repository..."
+    )
 
     parser = RequirementParser()
 
@@ -67,198 +66,142 @@ def main():
             :MAX_REQUIREMENTS
         ]
 
+    if not requirements:
+        raise ValueError(
+            "No requirements found in requirement repository."
+        )
+
     success(
         f"Requirements Loaded : "
         f"{len(requirements)}"
     )
 
     # ==========================================================
-    # 2. Initialize Evaluation Engine
+    # 2. Load QA Boat Output
+    # ==========================================================
+
+    info(
+        f"Loading QA Boat Excel : "
+        f"{QA_BOAT_EXCEL}"
+    )
+
+    generated_output = (
+        QABoatExcelLoader.load(
+            QA_BOAT_EXCEL
+        )
+    )
+
+    test_cases = generated_output.get(
+        "testCases",
+        [],
+    )
+
+    if not test_cases:
+        raise ValueError(
+            "QA Boat Excel did not contain any test cases."
+        )
+
+    success(
+        f"QA Boat Test Cases Loaded : "
+        f"{len(test_cases)}"
+    )
+
+    # ==========================================================
+    # 3. Select Requirement
+    # ==========================================================
+
+    if len(requirements) == 1:
+
+        requirement = requirements[0]
+
+    else:
+
+        raise ValueError(
+            "Multiple requirements were found in the "
+            "requirement repository, but the QA Boat Excel "
+            "does not provide direct Requirement ID mapping."
+        )
+
+    success(
+        f"Evaluation Requirement : "
+        f"{requirement.requirement_id}"
+    )
+
+    # ==========================================================
+    # 4. Build Evaluation Data
+    # ==========================================================
+
+    info(
+        "Building evaluation data..."
+    )
+
+    evaluation_output = (
+        EvaluationJsonBuilder.build(
+            requirement=requirement,
+            generated_output=generated_output,
+        )
+    )
+
+    success(
+        "Evaluation data ready."
+    )
+
+    # ==========================================================
+    # 5. Run Evaluation
     # ==========================================================
 
     evaluator = LLMEvaluator()
 
-    evaluation_results = []
+    info(
+        "Running QA Boat evaluation..."
+    )
+
+    result = evaluator.evaluate(
+        generator=GENERATOR_NAME,
+        requirement=requirement,
+        generated_output=generated_output,
+        evaluation_output=evaluation_output,
+    )
+
+    success(
+        "QA Boat evaluation completed."
+    )
 
     # ==========================================================
-    # 3. Process Requirements
+    # 6. Generate Report
     # ==========================================================
 
-    for requirement in requirements:
+    info(
+        "Generating QA Boat evaluation report..."
+    )
 
-        header(
-            f"Processing : "
-            f"{requirement.requirement_id}"
+    report_path = (
+        ReportGenerator.generate(
+            [result]
         )
+    )
 
-        start_time = time.perf_counter()
-
-        try:
-
-            # ==================================================
-            # Prompt Generation
-            # ==================================================
-
-            info ("Building prompt...")
-
-            prompt = (
-                GenerationPromptBuilder.build(
-                    requirement
-                )
-            )
-
-            # ==================================================
-            # Generate Test Cases
-            # ==================================================
-
-            info("Generating test cases...")
-
-            response = (
-                LLMService.generate_response(
-                    prompt=prompt,
-                    model=OLLAMA_MODEL,
-                )
-            )
-
-            success("Test cases generated.")
-            # ==================================================
-            # Save RAW Qwen3 JSON
-            # ==================================================
-
-            json_path = (
-                GeneratedJsonStorage.save(
-                    provider=GENERATOR_NAME,
-                    requirement_id=(
-                        requirement.requirement_id
-                    ),
-                    response=response,
-                )
-            )
-
-            success(f"Generated JSON saved: {json_path}")
-
-            # ==================================================
-            # Load RAW Generated JSON
-            # ==================================================
-
-            generated_output = (
-                GeneratedJsonStorage.load(
-                    json_path
-                )
-            )
-
-            # ==================================================
-            # Build Evaluation JSON
-            # ==================================================
-
-            info("Building evaluation data...")
-
-            evaluation_output = (
-                EvaluationJsonBuilder.build(
-                    requirement=requirement,
-                    generated_output=generated_output,
-                )
-            )
-
-            success("Evaluation data ready.")
-
-            # ==================================================
-            # Evaluation Engine
-            # ==================================================
-
-            info("Running evaluation...")
-
-            result = evaluator.evaluate(
-
-                generator=GENERATOR_NAME,
-
-                requirement=requirement,
-
-                generated_output=generated_output,
-                evaluation_output=evaluation_output,
-
-
-            )
-            
-            # ==================================================
-            # Execution Time
-            # ==================================================
-
-            result[
-                "overall"
-            ][
-                "execution_time"
-            ] = round(
-                time.perf_counter()
-                - start_time,
-                2,
-            )
-
-            # ==================================================
-            # Store Result
-            # ==================================================
-
-            evaluation_results.append(
-                result
-            )
-
-            # ==================================================
-            # Console Summary
-            # ==================================================
-
-            evaluation_summary(
-                result
-            )
-
-        except Exception as exception:
-
-            failed(
-                f"Requirement Evaluation Failed : "
-                f"{exception}"
-            )
-
-            warning(
-                f"Skipping Requirement : "
-                f"{requirement.requirement_id}"
-            )
-
-            continue
-
-    # ==========================================================
-    # 4. Generate Excel Report
-    # ==========================================================
-
-    if evaluation_results:
-
-        success(
-            "Generating Evaluation Report..."
-        )
-
-        report_path = (
-            ReportGenerator.generate(
-                evaluation_results
-            )
-        )
-
-        success(
-            f"Evaluation Report : "
-            f"{report_path}"
-        )
-
-    else:
-
-        warning(
-            "No evaluation results available."
-        )
-
-    # ==========================================================
-    # 5. Execution Completed
-    # ==========================================================
+    success(
+        f"QA Boat Evaluation Report : "
+        f"{report_path}"
+    )
 
     header(
-        "Execution Completed"
+        "QA BOAT EVALUATION COMPLETED"
     )
 
 
 if __name__ == "__main__":
-    main()
+
+    try:
+
+        main()
+
+    except Exception as exception:
+
+        failed(
+            f"QA Boat Evaluation Failed : "
+            f"{exception}"
+        )
+
+        raise
