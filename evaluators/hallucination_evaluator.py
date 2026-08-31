@@ -1,34 +1,20 @@
-from deepeval.metrics import (
-    HallucinationMetric,
-    AnswerRelevancyMetric,
-    GEval,
-)
-
-from deepeval.test_case import (
-    LLMTestCase,
-    LLMTestCaseParams,
-)
-
-from config.app_config import (
-    HALLUCINATION_THRESHOLD,
-    RELEVANCY_THRESHOLD,
-)
-
-from config.gemini_config import load_gemini_model
-from config.prompts import CORRECTNESS_CRITERIA
-
-from utils.logger import (
-    info,
-    success,
-    failed,
-)
+from deepeval.metrics import (HallucinationMetric,AnswerRelevancyMetric,GEval,)
+from deepeval.models import GeminiModel
+from deepeval.test_case import (LLMTestCase,LLMTestCaseParams,)
+from config.app_config import (GEMINI_API_KEY,GEMINI_MODEL,HALLUCINATION_THRESHOLD,RELEVANCY_THRESHOLD,)
+from config.prompts import (CORRECTNESS_CRITERIA,)
+from utils.logger import (info,success,failed,)
 
 
 class HallucinationEvaluator:
-
     def __init__(self):
+        if not GEMINI_API_KEY:
+            raise ValueError("GEMINI_API_KEY not found in .env")
 
-        judge = load_gemini_model()
+        info("Initializing Gemini Judge...")
+
+        judge = GeminiModel(model=GEMINI_MODEL,api_key=GEMINI_API_KEY,)
+        success(f"Gemini Judge Ready ({GEMINI_MODEL})")
 
         self.hallucination = HallucinationMetric(
             threshold=HALLUCINATION_THRESHOLD,
@@ -90,19 +76,17 @@ class HallucinationEvaluator:
                 "correctness_reason": self.correctness.reason,
             }
 
-        except Exception as e:
+        except Exception as error:
 
-            error = str(e)
-
-            failed(error)
+            failed(str(error))
 
             return {
                 "status": "FAILED",
-                "error": error,
+                "error": str(error),
                 "hallucination_score": None,
-                "hallucination_reason": error,
+                "hallucination_reason": str(error),
                 "answer_relevancy_score": None,
-                "answer_relevancy_reason": error,
+                "answer_relevancy_reason": str(error),
                 "correctness_score": None,
-                "correctness_reason": error,
+                "correctness_reason": str(error),
             }

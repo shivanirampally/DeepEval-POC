@@ -1,16 +1,34 @@
-import pandas as pd
-
-from pathlib import Path
 from datetime import datetime
-
+from pathlib import Path
+import pandas as pd
 from config.app_config import REPORT_FOLDER
+from utils.logger import (info,success,)
 
-from utils.logger import (
-    info,
-    success,
-)
 
 results_data = []
+
+def get_severity(score):
+    percentage = score * 100
+
+    if percentage <= 20:
+        return "Low"
+
+    if percentage <= 50:
+        return "Medium"
+
+    if percentage <= 80:
+        return "High"
+
+    return "Critical"
+
+
+def get_severity_score(severity):
+    return {
+        "Low": 1,
+        "Medium": 2,
+        "High": 3,
+        "Critical": 4,
+    }.get(severity, 0)
 
 
 def add_result(
@@ -20,9 +38,11 @@ def add_result(
     expected_output,
     actual_output,
     result,
-    severity,
-    severity_score,
 ):
+    hallucination_score = result["hallucination_score"]
+    severity = get_severity(hallucination_score)
+    severity_score = get_severity_score(severity)
+
     results_data.append(
         {
             "Category": category,
@@ -30,7 +50,7 @@ def add_result(
             "Context": context,
             "Expected Output": expected_output,
             "LLM Response": actual_output,
-            "Hallucination Score": result["hallucination_score"],
+            "Hallucination Score": hallucination_score,
             "Correctness Score": result["correctness_score"],
             "Answer Relevancy Score": result["answer_relevancy_score"],
             "Hallucination Reason": result["hallucination_reason"],
@@ -41,110 +61,93 @@ def add_result(
         }
     )
 
+    return severity, severity_score
+
 
 def generate_excel_report(results):
 
     info("Generating Excel Report...")
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    report_folder = (Path(REPORT_FOLDER) / timestamp)
+    report_folder.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
-    report_folder = Path(REPORT_FOLDER) / timestamp
-    report_folder.mkdir(parents=True, exist_ok=True)
+    report_path = (report_folder / "evaluation_report.xlsx")
+    if not results:
+        _write_empty_report(report_path)
+        success(f"Excel Report Generated: {report_path}")
+        return report_path
 
-    excel_path = report_folder / "hallucination_report.xlsx"
+    summary_data = []
+    with pd.ExcelWriter(
+        report_path,
+        engine="openpyxl",
+    ) as writer:
 
-    with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
+        dataframe = pd.DataFrame(results)
 
-        if not results:
+        for category, category_data in dataframe.groupby(
+            "Category"
+        ):
 
-            pd.DataFrame(
-                [
-                    {
-                        "Status": "No test results were available"
-                    }
-                ]
-            ).to_excel(
+            category_data.to_excel(
                 writer,
-                sheet_name="Summary",
+                sheet_name=str(category)[:31],
                 index=False,
             )
 
-        else:
-
-            summary_data = []
-
-            categories = sorted(
-                set(result["Category"] for result in results)
+            summary_data.append(
+                {
+                    "Category": category,
+                    "Total Cases": len(category_data),
+                    "Average Hallucination Score": round(
+                        category_data["Hallucination Score"].mean(),
+                        2,
+                    ),
+                    "Average Correctness Score": round(
+                        category_data["Correctness Score"].mean(),
+                        2,
+                    ),
+                    "Average Answer Relevancy Score": round(
+                        category_data["Answer Relevancy Score"].mean(),
+                        2,
+                    ),
+                }
             )
 
-            for category in categories:
+        summary_dataframe = pd.DataFrame(summary_data)
+        summary_dataframe.loc[len(summary_dataframe)] = {
+            "Category": "OVERALL",
+            "Total Cases": summary_dataframe[
+                "Total Cases"
+            ].sum(),
+            "Average Hallucination Score": round(
+                dataframe["Hallucination Score"].mean(),2,
+            ),
+            "Average Correctness Score": round(
+                dataframe["Correctness Score"].mean(),2,
+            ),
+            "Average Answer Relevancy Score": round(
+                dataframe["Answer Relevancy Score"].mean(),2,
+            ),
+        }
 
-                category_data = [
-                    result
-                    for result in results
-                    if result["Category"] == category
-                ]
+        summary_dataframe.to_excel(writer,sheet_name="Summary",index=False,)
 
-                df = pd.DataFrame(category_data)
+    success(f"Excel Report Generated: {report_path}")
+    return report_path
 
-                avg_hallucination = round(
-                    df["Hallucination Score"].mean(),
-                    2,
-                )
 
-                avg_correctness = round(
-                    df["Correctness Score"].mean(),
-                    2,
-                )
+def _write_empty_report(path):
 
-                avg_relevancy = round(
-                    df["Answer Relevancy Score"].mean(),
-                    2,
-                )
-
-                df.to_excel(
-                    writer,
-                    sheet_name=str(category)[:31],
-                    index=False,
-                )
-
-                summary_data.append(
-                    {
-                        "Category": category,
-                        "Total Cases": len(df),
-                        "Average Hallucination Score": avg_hallucination,
-                        "Average Correctness Score": avg_correctness,
-                        "Average Answer Relevancy Score": avg_relevancy,
-                    }
-                )
-
-            summary_df = pd.DataFrame(summary_data)
-
-            overall_row = {
-                "Category": "OVERALL",
-                "Total Cases": summary_df["Total Cases"].sum(),
-                "Average Hallucination Score": round(
-                    summary_df["Average Hallucination Score"].mean(),
-                    2,
-                ),
-                "Average Correctness Score": round(
-                    summary_df["Average Correctness Score"].mean(),
-                    2,
-                ),
-                "Average Answer Relevancy Score": round(
-                    summary_df["Average Answer Relevancy Score"].mean(),
-                    2,
-                ),
-            }
-
-            summary_df.loc[len(summary_df)] = overall_row
-
-            summary_df.to_excel(
-                writer,
-                sheet_name="Summary",
-                index=False,
-            )
-
-    success(f"Excel Report Generated: {excel_path}")
-
-    return excel_path
+    with pd.ExcelWriter(path,engine="openpyxl",) as writer:
+        pd.DataFrame(
+            [
+                {
+                    "Status": ("No test results were available")
+                }
+            ]
+        ).to_excel(writer,sheet_name="Summary",index=False,)

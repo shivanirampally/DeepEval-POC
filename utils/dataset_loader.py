@@ -1,4 +1,5 @@
 import pandas as pd
+
 from pathlib import Path
 
 from utils.logger import (
@@ -12,18 +13,16 @@ def load_all_datasets(path):
     info("Loading Dataset...")
     info(f"Reading Excel: {Path(path).resolve()}")
 
-    excel_file = pd.ExcelFile(path)
-
     dataset = []
 
-    for sheet_name in excel_file.sheet_names:
+    for sheet_name in pd.ExcelFile(path).sheet_names:
 
-        df = pd.read_excel(
+        dataframe = pd.read_excel(
             path,
             sheet_name=sheet_name,
         )
 
-        for _, row in df.iterrows():
+        for _, row in dataframe.iterrows():
 
             dataset.append(
                 {
@@ -34,6 +33,8 @@ def load_all_datasets(path):
                 }
             )
 
-    success(f"Dataset Loaded ({len(dataset)} test cases)")
+    success(
+        f"Dataset Loaded ({len(dataset)} test cases)"
+    )
 
     return dataset
